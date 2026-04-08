@@ -120,9 +120,10 @@ Edit `system-prompt.txt` to change the AI's personality and instructions. The `{
 
 ## Extending with MCP servers
 
-Since the bot has full bash access, it can use any CLI tool installed on the machine. Install [mcporter](https://github.com/AshDevFr/mcporter) to let the bot install and manage [MCP servers](https://modelcontextprotocol.io/) on demand — just ask it in chat to add any MCP server you need, and it will handle the rest.
+Since the bot has full bash access, it can use any CLI tool installed on the machine. With [mcporter](https://github.com/AshDevFr/mcporter), the bot can install and manage [MCP servers](https://modelcontextprotocol.io/) on demand — you can even ask the bot to install mcporter itself and then set up any MCP servers you need, all through chat.
 
 ```bash
+# Or just ask the bot to run this for you:
 npm install -g mcporter
 ```
 
