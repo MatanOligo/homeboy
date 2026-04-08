@@ -4,7 +4,8 @@
 
 <h1 align="center">Homeboy</h1>
 
-Control a fully functional computer with AI from your phone. Install any CLI you need and the bot runs it for you — remotely, conversationally, no limits.
+Control a fully functional computer with AI from your phone.
+Install any Software/CLI you need and the bot could run it for you — remotely, conversationally, instantly or scheduled, no limits.
 
 A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-agent-sdk). It gives Claude full access to your machine — bash, filesystem, network, and custom tools — through a conversational Telegram interface.
 
