@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 580" width="420" height="580">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 640" width="420" height="640">
   <!-- Background -->
-  <rect width="420" height="580" rx="16" fill="#0E0E0E"/>
+  <rect width="420" height="640" rx="16" fill="#0E0E0E"/>
 
   <!-- Header bar -->
   <rect width="420" height="52" rx="16" fill="#1A1A1A"/>
