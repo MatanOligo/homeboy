@@ -3,6 +3,8 @@ import {
   createSdkMcpServer,
 } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { dirname } from "path";
 import {
   createTask,
   getAllTasks,
@@ -10,6 +12,7 @@ import {
   cancelTask,
   type Task,
 } from "./db.js";
+import { config } from "./config.js";
 import { log } from "./logger.js";
 
 function formatTask(t: Task): string {
@@ -146,8 +149,44 @@ const cancelTaskTool = tool(
   },
 );
 
+const saveMemory = tool(
+  "save_memory",
+  "Save important information to persistent memory. Use this to remember facts, preferences, or anything the user asks you to remember. Memory persists across sessions. Always tell the user what you saved.",
+  {
+    content: z
+      .string()
+      .describe(
+        "The memory entry to save. Use a clear, concise format — e.g. 'User prefers dark mode' or '- Server IP: 10.0.0.1'",
+      ),
+  },
+  async (args) => {
+    mkdirSync(dirname(config.memoryFile), { recursive: true });
+
+    let existing = "";
+    try {
+      existing = readFileSync(config.memoryFile, "utf-8");
+    } catch {}
+
+    const updated = existing
+      ? `${existing.trimEnd()}\n${args.content}\n`
+      : `${args.content}\n`;
+
+    writeFileSync(config.memoryFile, updated);
+    log.info("memory", `Saved: ${args.content.slice(0, 100)}`);
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Saved to memory: ${args.content}`,
+        },
+      ],
+    };
+  },
+);
+
 export const taskToolsServer = createSdkMcpServer({
   name: "homeboy-tasks",
   version: "1.0.0",
-  tools: [scheduleTask, listTasks, cancelTaskTool],
+  tools: [scheduleTask, listTasks, cancelTaskTool, saveMemory],
 });

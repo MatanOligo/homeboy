@@ -22,6 +22,15 @@ function loadSystemPrompt(outboxDir: string): string {
 }
 
 const outboxDir = new URL("../data/outbox/", import.meta.url).pathname;
+const memoryFile = new URL("../data/memory.md", import.meta.url).pathname;
+
+export function loadMemory(): string {
+  try {
+    return readFileSync(memoryFile, "utf-8").trim();
+  } catch {
+    return "";
+  }
+}
 
 export const config = {
   telegramToken: required("TELEGRAM_BOT_TOKEN"),
@@ -31,6 +40,7 @@ export const config = {
   workingDir: process.env.WORKING_DIR || process.cwd(),
   maxMessageAge: Number(process.env.MAX_MESSAGE_AGE || "60"),
   sessionsFile: new URL("../data/sessions.json", import.meta.url).pathname,
+  memoryFile,
   outboxDir,
   promptFile: PROMPT_FILE,
 };

@@ -32,3 +32,9 @@ Source lives in `src/`:
 - `scheduler.ts` — task scheduler loop, runs tasks in isolated Claude sessions
 - `logger.ts` — file + console logger
 - `utils.ts` — message chunking, typing indicator
+
+## Maintenance
+
+When making major changes (new features, new files, architectural changes, new commands), update:
+- **This file (`CLAUDE.md`)** — keep the project structure and quick reference accurate
+- **`README.md`** — keep features, setup, commands, and architecture sections in sync

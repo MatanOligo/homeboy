@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { config } from "./config.js";
+import { config, loadMemory } from "./config.js";
 import { log } from "./logger.js";
 import { taskToolsServer } from "./tools.js";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -58,9 +58,15 @@ const BASE_TOOLS = [
   "NotebookEdit",
 ];
 
+function buildSystemPrompt(): string {
+  const memory = loadMemory();
+  if (!memory) return config.systemPrompt;
+  return `${config.systemPrompt}\n\n## Memory\nThe following is your persistent memory from previous sessions:\n\n${memory}`;
+}
+
 function baseOptions() {
   return {
-    systemPrompt: config.systemPrompt,
+    systemPrompt: buildSystemPrompt(),
     cwd: config.workingDir,
     model: currentModel,
     allowedTools: BASE_TOOLS,
