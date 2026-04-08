@@ -1,4 +1,8 @@
-# Homeboy
+<p align="center">
+  <img src="assets/logo.svg" alt="Homeboy logo" width="180"/>
+</p>
+
+<h1 align="center">Homeboy</h1>
 
 A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-agent-sdk). It gives Claude full access to your machine — bash, filesystem, network, and custom tools — through a conversational Telegram interface.
 

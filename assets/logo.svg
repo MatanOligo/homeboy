@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6C63FF;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="house" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#E0E7FF;stop-opacity:1"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bg)"/>
+
+  <!-- House body -->
+  <rect x="160" y="250" width="192" height="140" rx="12" fill="url(#house)" filter="url(#shadow)"/>
+
+  <!-- Roof -->
+  <polygon points="256,130 130,255 382,255" fill="#FFFFFF" filter="url(#shadow)"/>
+  <polygon points="256,148 150,250 362,250" fill="url(#house)"/>
+
+  <!-- Chimney -->
+  <rect x="320" y="155" width="30" height="70" rx="4" fill="#FFFFFF"/>
+
+  <!-- Door -->
+  <rect x="230" y="310" width="52" height="80" rx="8" fill="#6C63FF"/>
+  <circle cx="271" cy="352" r="4" fill="#FFFFFF"/>
+
+  <!-- Left window — AI eye -->
+  <rect x="178" y="272" width="40" height="40" rx="8" fill="#6C63FF"/>
+  <circle cx="198" cy="292" r="10" fill="#FFFFFF"/>
+  <circle cx="201" cy="290" r="4" fill="#1E1B4B"/>
+
+  <!-- Right window — AI eye -->
+  <rect x="294" y="272" width="40" height="40" rx="8" fill="#6C63FF"/>
+  <circle cx="314" cy="292" r="10" fill="#FFFFFF"/>
+  <circle cx="317" cy="290" r="4" fill="#1E1B4B"/>
+
+  <!-- Antenna / signal waves -->
+  <line x1="256" y1="130" x2="256" y2="95" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="256" cy="88" r="7" fill="#FFFFFF"/>
+  <!-- Signal arcs -->
+  <path d="M 238 75 Q 256 55 274 75" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <path d="M 228 65 Q 256 38 284 65" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Telegram paper plane (small, bottom-right of house) -->
+  <g transform="translate(355, 355) scale(0.5)" opacity="0.9">
+    <polygon points="0,30 90,0 30,90" fill="#FFFFFF"/>
+    <polygon points="36,36 90,0 30,90" fill="#C7D2FE"/>
+    <line x1="36" y1="36" x2="50" y2="70" stroke="#FFFFFF" stroke-width="2"/>
+  </g>
+</svg>
