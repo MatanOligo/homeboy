@@ -118,6 +118,14 @@ src/
 
 Edit `system-prompt.txt` to change the AI's personality and instructions. The `{{OUTBOX_DIR}}` placeholder is replaced at runtime with the actual outbox path — no need to hardcode it.
 
+## Extending with MCP servers
+
+Since the bot has full bash access, it can use any CLI tool installed on the machine. Install [mcporter](https://github.com/AshDevFr/mcporter) to let the bot install and manage [MCP servers](https://modelcontextprotocol.io/) on demand — just ask it in chat to add any MCP server you need, and it will handle the rest.
+
+```bash
+npm install -g mcporter
+```
+
 ## Security
 
 This bot gives Claude **full access to your machine** with no sandboxing. It is designed for personal use on a trusted machine. Only messages from your `ALLOWED_USER_ID` are processed; all others are silently ignored.

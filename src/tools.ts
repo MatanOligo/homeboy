@@ -37,7 +37,7 @@ function formatTask(t: Task): string {
 
 const scheduleTask = tool(
   "schedule_task",
-  "Create a scheduled task. The task will run in an isolated AI session with full tool access (Bash, files, web, etc). Use this for one-time or recurring tasks the user wants automated.",
+  "Create a scheduled task. Tasks are persisted in a database and will keep running as long as the bot process is running — they are NOT tied to the current conversation session. Each task runs in an isolated AI session with full tool access (Bash, files, web, etc). Use this for one-time or recurring tasks the user wants automated.",
   {
     name: z.string().describe("Short task name (2-5 words)"),
     prompt: z
