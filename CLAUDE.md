@@ -10,6 +10,7 @@ Personal AI assistant on Telegram, powered by Claude Agent SDK.
 - **Logs**: `data/homeboy.log`
 - **Database**: `data/homeboy.db` — scheduled tasks (SQLite)
 - **Sessions**: `data/sessions.json`
+- **Memory**: `data/memory.md` — persistent memory across sessions
 
 ## Running
 
@@ -26,7 +27,7 @@ Source lives in `src/`:
 - `index.ts` — entry point
 - `bot.ts` — Telegram bot, commands, message handlers
 - `assistant.ts` — Claude Agent SDK wrapper, session management
-- `tools.ts` — custom MCP tools (schedule_task, list_tasks, cancel_task)
+- `tools.ts` — custom MCP tools (schedule_task, list_tasks, cancel_task, save_memory)
 - `config.ts` — typed env config, system prompt loading
 - `db.ts` — SQLite database, scheduled tasks CRUD
 - `scheduler.ts` — task scheduler loop, runs tasks in isolated Claude sessions

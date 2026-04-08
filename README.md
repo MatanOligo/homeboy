@@ -18,6 +18,7 @@ A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK
 - **Scheduled tasks** — schedule one-time or recurring tasks in natural language (e.g. "check disk usage every 6 hours")
 - **File sharing** — Claude can send you files, screenshots, and generated output directly in chat
 - **Model switching** — swap between Claude models at runtime
+- **Persistent memory** — the bot remembers important facts and preferences across sessions
 - **Single-user auth** — only your Telegram account can interact with the bot
 
 ## Prerequisites
@@ -99,7 +100,7 @@ src/
   index.ts        Entry point, boot sequence, signal handling
   bot.ts          Telegram bot, commands, message handlers
   assistant.ts    Claude Agent SDK wrapper, session management
-  tools.ts        Custom MCP tools (schedule_task, list_tasks, cancel_task)
+  tools.ts        Custom MCP tools (schedule_task, list_tasks, cancel_task, save_memory)
   config.ts       Typed env config, system prompt loading
   db.ts           SQLite database for scheduled tasks
   scheduler.ts    Task scheduler loop, runs tasks in isolated sessions
@@ -110,6 +111,7 @@ src/
 - **Sessions** are persisted in `data/sessions.json` and resumed automatically
 - **Scheduled tasks** are stored in `data/homeboy.db` (SQLite)
 - **Logs** go to `data/homeboy.log` and stdout
+- **Memory** is stored in `data/memory.md` — loaded into the system prompt on each new session
 - **Outbox** — Claude saves files to `data/outbox/`, which are automatically sent to you and deleted
 
 ## Customization
