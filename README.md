@@ -8,7 +8,7 @@
   <img src="assets/demo.svg" alt="Homeboy demo" width="420"/>
 </p>
 
-Control a fully functional computer with AI from your phone.
+Control a fully functional computer, or remote machine, with AI from your phone.
 
 Install any Software/CLI you need and the bot could run it for you — remotely, conversationally, instantly or scheduled, no limits.
 
