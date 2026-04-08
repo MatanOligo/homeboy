@@ -1,0 +1,29 @@
+{
+  "name": "homeboy",
+  "version": "1.0.0",
+  "description": "Personal AI assistant on Telegram, powered by Claude Agent SDK",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatanOligo/homeboy.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "prod": "node dist/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.96",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^16.5.0",
+    "grammy": "^1.35.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

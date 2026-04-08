@@ -1,0 +1,23 @@
+[Unit]
+Description=Homeboy - Personal AI Assistant (Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change these to match your setup:
+User=oc
+WorkingDirectory=/home/oc/homeboy
+ExecStart=/usr/bin/npx tsx src/index.ts
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/home/oc/homeboy/.env
+
+# Logging — stdout/stderr go to journalctl
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=homeboy
+
+[Install]
+WantedBy=multi-user.target
