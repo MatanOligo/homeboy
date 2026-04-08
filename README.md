@@ -4,6 +4,10 @@
 
 <h1 align="center">Homeboy</h1>
 
+<p align="center">
+  <img src="assets/demo.svg" alt="Homeboy demo" width="420"/>
+</p>
+
 Control a fully functional computer with AI from your phone.
 
 Install any Software/CLI you need and the bot could run it for you — remotely, conversationally, instantly or scheduled, no limits.

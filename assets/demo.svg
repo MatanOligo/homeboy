@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 580" width="420" height="580">
+  <!-- Background -->
+  <rect width="420" height="580" rx="16" fill="#0E0E0E"/>
+
+  <!-- Header bar -->
+  <rect width="420" height="52" rx="16" fill="#1A1A1A"/>
+  <rect y="36" width="420" height="16" fill="#1A1A1A"/>
+  <circle cx="36" cy="26" r="16" fill="#8774E1"/>
+  <text x="36" y="31" text-anchor="middle" fill="#FFF" font-family="Arial, sans-serif" font-size="14" font-weight="700">H</text>
+  <text x="62" y="22" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="15" font-weight="600">Homeboy</text>
+  <text x="62" y="38" fill="#8E8E93" font-family="Arial, sans-serif" font-size="11">online</text>
+
+  <!-- Chat area -->
+  <g transform="translate(0, 60)">
+
+    <!-- MSG 1: User — weather question -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="0.5s" fill="freeze"/>
+      <rect x="130" y="8" width="278" height="34" rx="14" fill="#2B5278"/>
+      <text x="144" y="30" fill="#FFF" font-family="Arial, sans-serif" font-size="13">What's the weather in Tel Aviv?</text>
+    </g>
+
+    <!-- MSG 2: Bot — web search + answer -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="1.4s" fill="freeze"/>
+      <text x="16" y="68" fill="#8774E1" font-family="Arial, sans-serif" font-size="11" font-weight="600">Homeboy</text>
+      <text x="16" y="84" fill="#666" font-family="Courier, monospace" font-size="10.5" font-style="italic">&#x1F50D; searching the web...</text>
+      <rect x="12" y="92" width="300" height="50" rx="14" fill="#1D1D1D"/>
+      <text x="24" y="114" fill="#FFF" font-family="Arial, sans-serif" font-size="13">27&#176;C and sunny in Tel Aviv</text>
+      <text x="24" y="132" fill="#CCC" font-family="Arial, sans-serif" font-size="12">Humidity 65%, wind 12 km/h NW</text>
+    </g>
+
+    <!-- MSG 3: User — schedule task -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="2.8s" fill="freeze"/>
+      <rect x="56" y="162" width="352" height="34" rx="14" fill="#2B5278"/>
+      <text x="70" y="184" fill="#FFF" font-family="Arial, sans-serif" font-size="13">Remind me to check stocks at 9am daily</text>
+    </g>
+
+    <!-- MSG 4: Bot — confirms schedule -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="3.6s" fill="freeze"/>
+      <text x="16" y="222" fill="#666" font-family="Courier, monospace" font-size="10.5" font-style="italic">&#x1F4C5; scheduling recurring task...</text>
+      <rect x="12" y="230" width="330" height="34" rx="14" fill="#1D1D1D"/>
+      <text x="24" y="252" fill="#FFF" font-family="Arial, sans-serif" font-size="13">Done! I'll check stocks daily at 9:00 AM &#x2705;</text>
+    </g>
+
+    <!-- MSG 5: User — screenshot -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="5.0s" fill="freeze"/>
+      <rect x="90" y="284" width="318" height="34" rx="14" fill="#2B5278"/>
+      <text x="104" y="306" fill="#FFF" font-family="Arial, sans-serif" font-size="13">Screenshot Hacker News front page</text>
+    </g>
+
+    <!-- MSG 6: Bot — screenshot result -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="5.8s" fill="freeze"/>
+      <text x="16" y="344" fill="#666" font-family="Courier, monospace" font-size="10.5" font-style="italic">&#x1F4F7; taking screenshot...</text>
+      <rect x="12" y="352" width="200" height="78" rx="14" fill="#1D1D1D"/>
+      <rect x="20" y="360" width="184" height="62" rx="6" fill="#FF6600" opacity="0.12"/>
+      <rect x="28" y="368" width="110" height="6" rx="3" fill="#FF6600" opacity="0.5"/>
+      <rect x="28" y="380" width="155" height="4" rx="2" fill="#444"/>
+      <rect x="28" y="390" width="140" height="4" rx="2" fill="#444"/>
+      <rect x="28" y="400" width="148" height="4" rx="2" fill="#444"/>
+      <rect x="28" y="410" width="125" height="4" rx="2" fill="#444"/>
+    </g>
+
+    <!-- MSG 7: User — authenticate + operate -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="7.2s" fill="freeze"/>
+      <rect x="46" y="450" width="362" height="34" rx="14" fill="#2B5278"/>
+      <text x="60" y="472" fill="#FFF" font-family="Arial, sans-serif" font-size="13">&#x1F512; Log into AWS and check my billing</text>
+    </g>
+
+    <!-- MSG 8: Bot — auth + result -->
+    <g opacity="0">
+      <set attributeName="opacity" to="1" begin="8.2s" fill="freeze"/>
+      <text x="16" y="510" fill="#666" font-family="Courier, monospace" font-size="10.5" font-style="italic">&#x1F5A5; launching browser &#xB7; authenticating...</text>
+      <rect x="12" y="518" width="290" height="50" rx="14" fill="#1D1D1D"/>
+      <text x="24" y="538" fill="#FFF" font-family="Arial, sans-serif" font-size="13">Logged in. April billing so far:</text>
+      <text x="24" y="556" fill="#FFF" font-family="Arial, sans-serif" font-size="13" font-weight="700">$142.37 &#x2014; 68% from EC2 instances</text>
+    </g>
+
+  </g>
+</svg>
