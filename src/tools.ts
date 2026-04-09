@@ -10,6 +10,7 @@ import {
   getAllTasks,
   getTask,
   cancelTask,
+  getNextCronRun,
   type Task,
 } from "./db.js";
 import { config } from "./config.js";
@@ -18,7 +19,9 @@ import { log } from "./logger.js";
 function formatTask(t: Task): string {
   const status = t.status === "active" ? "active" : "completed";
   const schedule =
-    t.schedule_type === "interval"
+    t.schedule_type === "cron"
+      ? `cron(${t.cron_expression})`
+      : t.schedule_type === "interval"
       ? `every ${t.interval_seconds}s`
       : "one-time";
   const nextRun =
@@ -46,31 +49,40 @@ const scheduleTask = tool(
         "Detailed instruction for the AI to execute when the task runs",
       ),
     schedule_type: z
-      .enum(["once", "interval"])
-      .describe("'once' for one-time, 'interval' for recurring"),
+      .enum(["once", "interval", "cron"])
+      .describe("'once' for one-time, 'interval' for fixed-interval recurring, 'cron' for cron expression-based scheduling"),
     interval_seconds: z
       .number()
       .nullable()
-      .describe("Seconds between runs (for interval tasks). null for one-time tasks"),
+      .describe("Seconds between runs (for interval tasks). null otherwise"),
+    cron_expression: z
+      .string()
+      .nullable()
+      .describe("Cron expression for scheduling (for cron tasks), e.g. '0 9 * * *' for every day at 9am. null otherwise"),
     run_at: z
       .number()
       .nullable()
       .describe(
-        "Unix timestamp for when to run (one-time tasks). null for interval tasks. Current unix timestamp: " +
+        "Unix timestamp for when to run (one-time tasks). null otherwise. Current unix timestamp: " +
           Math.floor(Date.now() / 1000),
       ),
   },
   async (args) => {
-    const nextRunAt =
-      args.schedule_type === "once"
-        ? args.run_at!
-        : Math.floor(Date.now() / 1000) + (args.interval_seconds || 0);
+    let nextRunAt: number;
+    if (args.schedule_type === "once") {
+      nextRunAt = args.run_at!;
+    } else if (args.schedule_type === "cron") {
+      nextRunAt = getNextCronRun(args.cron_expression!);
+    } else {
+      nextRunAt = Math.floor(Date.now() / 1000) + (args.interval_seconds || 0);
+    }
 
     const task = createTask({
       name: args.name,
       prompt: args.prompt,
       schedule_type: args.schedule_type,
       interval_seconds: args.interval_seconds,
+      cron_expression: args.cron_expression,
       next_run_at: nextRunAt,
     });
 
