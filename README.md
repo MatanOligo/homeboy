@@ -30,7 +30,7 @@ A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed (`npm install -g @anthropic-ai/claude-code`)
 - Node.js 20+
 - A [Telegram bot token](https://core.telegram.org/bots#how-do-i-create-a-bot) from @BotFather
-- An [Anthropic API key](https://console.anthropic.com/) (set as `ANTHROPIC_API_KEY` in your environment)
+
 
 ## Setup
 
@@ -65,8 +65,6 @@ Edit `.env`:
 | `CLAUDE_MODEL` | Claude model to use (default: `claude-sonnet-4-6`) |
 | `WORKING_DIR` | Directory where Claude executes commands (default: `.`) |
 | `MAX_MESSAGE_AGE` | Seconds before stale messages are dropped (default: `60`) |
-
-You also need `ANTHROPIC_API_KEY` set in your environment (or add it to `.env`).
 
 ## Running
 

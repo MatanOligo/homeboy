@@ -44,14 +44,7 @@ Run `npm install`. Report success or any errors.
 
 4. Write the final `.env` file with their values.
 
-## Step 4: Verify Anthropic API key
-
-Check if `ANTHROPIC_API_KEY` is set in the environment (`echo $ANTHROPIC_API_KEY`). If not, tell the user:
-> You need an Anthropic API key. Get one at https://console.anthropic.com/. Then either:
-> - Add `ANTHROPIC_API_KEY=sk-ant-...` to your `.env` file, or
-> - Export it in your shell profile: `export ANTHROPIC_API_KEY=sk-ant-...`
-
-## Step 5: Register bot commands (optional)
+## Step 4: Register bot commands (optional)
 
 Ask the user if they want to register the bot commands with Telegram (so they show up in the command menu). If yes, run:
 
@@ -73,12 +66,12 @@ source .env && curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyC
 
 Confirm the result is `{"ok":true, ...}`.
 
-## Step 6: Test run
+## Step 5: Test run
 
 Ask the user if they want to do a test run. If yes:
 1. Run `npm run dev` (note: this will block, so tell the user to send a message to their bot on Telegram to verify it works, then Ctrl+C to stop).
 
-## Step 7: Systemd setup (optional)
+## Step 6: Systemd setup (optional)
 
 Ask if they want to set up Homeboy as a systemd service so it runs on boot. If yes:
 1. Read `homeboy.service`
