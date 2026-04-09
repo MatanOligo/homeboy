@@ -41,7 +41,7 @@ cd homeboy
 
 ### Option A: Interactive setup (recommended)
 
-If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed, run the setup wizard:
+If you have [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed (and you must lol), run the setup wizard:
 
 ```bash
 claude /setup
