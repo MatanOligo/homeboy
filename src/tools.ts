@@ -10,6 +10,8 @@ import {
   getAllTasks,
   getTask,
   cancelTask,
+  deleteTask,
+  updateTask,
   getNextCronRun,
   type Task,
 } from "./db.js";
@@ -161,6 +163,64 @@ const cancelTaskTool = tool(
   },
 );
 
+const deleteTaskTool = tool(
+  "delete_task",
+  "Permanently delete a task by its ID (removes it from the database entirely). Use this to clean up completed or cancelled tasks. For stopping an active task, prefer cancel_task.",
+  {
+    task_id: z.number().describe("The task ID to delete"),
+  },
+  async (args) => {
+    const task = getTask(args.task_id);
+    if (!task) {
+      return {
+        content: [{ type: "text" as const, text: `Task #${args.task_id} not found.` }],
+      };
+    }
+
+    deleteTask(args.task_id);
+    log.info("tools", `Task #${args.task_id} deleted`);
+    return {
+      content: [{ type: "text" as const, text: `Task #${args.task_id} (${task.name}) deleted permanently.` }],
+    };
+  },
+);
+
+const updateTaskTool = tool(
+  "update_task",
+  "Update an existing task's prompt and/or schedule (cron expression or interval). Only the fields you provide will be changed. If the cron expression or interval changes, next_run_at is recalculated automatically.",
+  {
+    task_id: z.number().describe("The task ID to update"),
+    prompt: z.string().nullable().describe("New prompt text, or null to leave unchanged"),
+    cron_expression: z.string().nullable().describe("New cron expression (for cron tasks), or null to leave unchanged"),
+    interval_seconds: z.number().nullable().describe("New interval in seconds (for interval tasks), or null to leave unchanged"),
+  },
+  async (args) => {
+    const task = getTask(args.task_id);
+    if (!task) {
+      return {
+        content: [{ type: "text" as const, text: `Task #${args.task_id} not found.` }],
+      };
+    }
+
+    const updates: { prompt?: string; cron_expression?: string; interval_seconds?: number } = {};
+    if (args.prompt != null) updates.prompt = args.prompt;
+    if (args.cron_expression != null) updates.cron_expression = args.cron_expression;
+    if (args.interval_seconds != null) updates.interval_seconds = args.interval_seconds;
+
+    if (Object.keys(updates).length === 0) {
+      return {
+        content: [{ type: "text" as const, text: "No updates provided." }],
+      };
+    }
+
+    const updated = updateTask(args.task_id, updates);
+    log.info("tools", `Task #${args.task_id} updated`);
+    return {
+      content: [{ type: "text" as const, text: `Task #${args.task_id} updated.\n${formatTask(updated!)}` }],
+    };
+  },
+);
+
 const saveMemory = tool(
   "save_memory",
   "Save important information to persistent memory. Use this to remember facts, preferences, or anything the user asks you to remember. Memory persists across sessions. Always tell the user what you saved.",
@@ -200,5 +260,5 @@ const saveMemory = tool(
 export const taskToolsServer = createSdkMcpServer({
   name: "homeboy-tasks",
   version: "1.0.0",
-  tools: [scheduleTask, listTasks, cancelTaskTool, saveMemory],
+  tools: [scheduleTask, listTasks, cancelTaskTool, deleteTaskTool, updateTaskTool, saveMemory],
 });
