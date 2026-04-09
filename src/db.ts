@@ -152,4 +152,39 @@ export function cancelTask(id: number): boolean {
   return result.changes > 0;
 }
 
+export function deleteTask(id: number): boolean {
+  const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function updateTask(
+  id: number,
+  updates: {
+    prompt?: string;
+    cron_expression?: string;
+    interval_seconds?: number;
+  },
+): Task | undefined {
+  const task = getTask(id);
+  if (!task) return undefined;
+
+  const newPrompt = updates.prompt ?? task.prompt;
+  const newCronExpression = updates.cron_expression ?? task.cron_expression;
+  const newIntervalSeconds = updates.interval_seconds ?? task.interval_seconds;
+
+  // Recalculate next_run_at if the schedule changed
+  let newNextRunAt = task.next_run_at;
+  if (updates.cron_expression && task.schedule_type === "cron") {
+    newNextRunAt = getNextCronRun(updates.cron_expression);
+  } else if (updates.interval_seconds && task.schedule_type === "interval") {
+    newNextRunAt = Math.floor(Date.now() / 1000) + updates.interval_seconds;
+  }
+
+  db.prepare(
+    "UPDATE tasks SET prompt = ?, cron_expression = ?, interval_seconds = ?, next_run_at = ? WHERE id = ?",
+  ).run(newPrompt, newCronExpression, newIntervalSeconds, newNextRunAt, id);
+
+  return getTask(id);
+}
+
 export { db };
