@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="assets/logo.svg" alt="Homeboy logo" width="180"/>
-</p>
-
-<h1 align="center">Homeboy</h1>
+<h1 align="center"><img src="assets/logo.svg" alt="Homeboy logo" width="40" valign="middle"/> Homeboy</h1>
 
 <p align="center">
   <img src="assets/demo.svg" alt="Homeboy demo" width="420"/>
