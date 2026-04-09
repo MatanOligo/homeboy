@@ -14,6 +14,8 @@ Install any Software/CLI you need and the bot could run it for you — remotely,
 
 A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-agent-sdk). It gives Claude full access to your machine — bash, filesystem, network, and custom tools — through a conversational Telegram interface.
 
+**Lightweight by design** — the entire project is ~10 files of readable TypeScript, with only 4 runtime dependencies and **0 known vulnerabilities**. Small codebase, minimal attack surface, easy to audit and understand.
+
 ## Features
 
 - **Full machine access** — Claude can run commands, read/write files, browse the web, and more
@@ -142,7 +144,9 @@ npm install -g mcporter
 
 ## Security
 
-This bot gives Claude **full access to your machine** with no sandboxing. It is designed for personal use on a trusted machine. Only messages from your `ALLOWED_USER_ID` are processed; all others are silently ignored.
+This bot gives Claude **full access to your machine** with no sandboxing. Only messages from your `ALLOWED_USER_ID` are processed; all others are silently ignored.
+
+**Recommended deployment**: run Homeboy on a dedicated remote machine (e.g. AWS EC2, DigitalOcean droplet, Hetzner VPS) behind a VPN rather than on your personal computer. Since you'll likely give the bot access tokens and credentials to operate on your behalf (cloud providers, APIs, databases, etc.), isolating it on a locked-down remote instance limits the blast radius and keeps your personal machine out of scope.
 
 Do not expose this bot to untrusted users.
 
