@@ -1,4 +1,4 @@
-import { readdirSync, unlinkSync, mkdirSync } from "fs";
+import { readdirSync, readFileSync, unlinkSync, mkdirSync } from "fs";
 import { join, extname } from "path";
 import { config } from "./config.js";
 import { log } from "./logger.js";
@@ -29,12 +29,21 @@ export async function sendOutboxFiles(
     const ext = extname(filename).toLowerCase();
 
     try {
-      const fileInput = new InputFile(filepath);
-
       if (PHOTO_EXTENSIONS.has(ext)) {
-        await api.sendPhoto(chatId, fileInput);
+        await api.sendPhoto(chatId, new InputFile(filepath));
+      } else if (ext === ".txt") {
+        // Send text files as messages so markdown links are clickable
+        const text = readFileSync(filepath, "utf-8");
+        const chunks = chunkMessage(text);
+        for (const chunk of chunks) {
+          try {
+            await api.sendMessage(chatId, chunk, { parse_mode: "Markdown" });
+          } catch {
+            await api.sendMessage(chatId, chunk);
+          }
+        }
       } else {
-        await api.sendDocument(chatId, fileInput);
+        await api.sendDocument(chatId, new InputFile(filepath));
       }
 
       log.info("outbox", `Sent file: ${filename}`);

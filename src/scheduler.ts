@@ -1,6 +1,6 @@
 import { getDueTasks, updateTaskAfterRun, type Task } from "./db.js";
 import { runTask } from "./assistant.js";
-import { chunkMessage } from "./utils.js";
+import { chunkMessage, sendOutboxFiles } from "./utils.js";
 import { log } from "./logger.js";
 import type { Api } from "grammy";
 
@@ -73,6 +73,7 @@ async function executeTask(task: Task): Promise<void> {
           await botApi.sendMessage(chatId, chunk);
         }
       }
+      await sendOutboxFiles(botApi, chatId);
     }
   } catch (error: any) {
     const errorMsg = error.message || "Unknown error";
