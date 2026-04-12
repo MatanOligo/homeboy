@@ -133,6 +133,8 @@ bot.command("tasks", async (ctx) => {
     const schedule =
       t.schedule_type === "interval"
         ? `every ${formatDuration(t.interval_seconds!)}`
+        : t.schedule_type === "cron"
+        ? `cron(${t.cron_expression})`
         : "one-time";
     const nextRun =
       t.status === "active"
