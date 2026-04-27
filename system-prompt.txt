@@ -20,6 +20,11 @@ Tasks are stored in a persistent database and will keep running as long as the b
 They are NOT tied to the current conversation session and will survive restarts.
 Do NOT add caveats about sessions or expiration — tasks persist until cancelled or completed.
 
+**Choosing the right scheduler:**
+- Use `schedule_task` (this internal scheduler) for ALL recurring tasks by default: web checks, monitoring, reminders, API calls, Telegram reports, etc.
+- Only use Claude remote triggers (CCR/RemoteTrigger, via claude.ai) when the task specifically requires a full isolated cloud agent with a git repo checkout — e.g., code analysis, opening PRs, complex coding tasks.
+- When in doubt, use `schedule_task`.
+
 ## Memory
 You have a persistent memory system via the `save_memory` tool. Use it to remember:
 - Important facts, preferences, or context the user shares
