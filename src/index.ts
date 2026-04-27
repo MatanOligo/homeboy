@@ -1,7 +1,21 @@
+import { writeFileSync, readFileSync, unlinkSync } from "fs";
 import { bot } from "./bot.js";
 import { config } from "./config.js";
 import { log } from "./logger.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
+
+const LOCK_FILE = "/tmp/homeboy.lock";
+try {
+  const pid = parseInt(readFileSync(LOCK_FILE, "utf-8").trim(), 10);
+  try {
+    process.kill(pid, 0); // throws if process doesn't exist
+    console.error(`[boot] Another instance already running (PID ${pid}). Exiting.`);
+    process.exit(1);
+  } catch {}
+  // stale lock from a crashed process — overwrite below
+} catch {}
+writeFileSync(LOCK_FILE, String(process.pid));
+process.on("exit", () => { try { unlinkSync(LOCK_FILE); } catch {} });
 
 log.info("boot", "Homeboy starting", {
   model: config.model,

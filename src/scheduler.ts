@@ -1,4 +1,4 @@
-import { getDueTasks, updateTaskAfterRun, type Task } from "./db.js";
+import { getDueTasks, markTaskRunning, resetStuckRunningTasks, updateTaskAfterRun, type Task } from "./db.js";
 import { runTask } from "./assistant.js";
 import { chunkMessage, sendOutboxFiles } from "./utils.js";
 import { log } from "./logger.js";
@@ -17,6 +17,7 @@ export function startScheduler(api: Api, userId: number): void {
   botApi = api;
   chatId = userId;
 
+  resetStuckRunningTasks();
   log.info("scheduler", "Starting scheduler (checking every 30s)");
   schedulerInterval = setInterval(checkAndRunTasks, CHECK_INTERVAL);
   checkAndRunTasks();
@@ -36,6 +37,10 @@ async function checkAndRunTasks(): Promise<void> {
     if (runningTasks.has(task.id)) continue;
 
     runningTasks.add(task.id);
+    if (!markTaskRunning(task.id)) {
+      runningTasks.delete(task.id);
+      continue;
+    }
     executeTask(task)
       .catch((error) => {
         log.error("scheduler", `Task #${task.id} unhandled error`, {
@@ -51,11 +56,11 @@ async function checkAndRunTasks(): Promise<void> {
 async function executeTask(task: Task): Promise<void> {
   log.info("scheduler", `Running task #${task.id}: ${task.name}`);
 
-  if (botApi && chatId) {
-    await botApi.sendMessage(chatId, `Running task #${task.id}: ${task.name}...`);
-  }
-
   try {
+    if (botApi && chatId) {
+      await botApi.sendMessage(chatId, `Running task #${task.id}: ${task.name}...`);
+    }
+
     const result = await runTask(task.prompt);
     updateTaskAfterRun(task.id, result);
 

@@ -21,15 +21,15 @@ db.exec(`
     next_run_at INTEGER NOT NULL,
     last_run_at INTEGER,
     last_result TEXT,
-    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed', 'running')),
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 `);
 
 // Migration: recreate table with cron support if the old constraint is in place
 const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get() as { sql: string } | undefined;
-if (tableInfo && !tableInfo.sql.includes("'cron'")) {
-  log.info("db", "Migrating tasks table to support cron schedules");
+if (tableInfo && (!tableInfo.sql.includes("'cron'") || !tableInfo.sql.includes("'running'"))) {
+  log.info("db", "Migrating tasks table to support cron schedules and running status");
   db.exec(`
     PRAGMA foreign_keys = OFF;
     BEGIN;
@@ -43,11 +43,11 @@ if (tableInfo && !tableInfo.sql.includes("'cron'")) {
       next_run_at INTEGER NOT NULL,
       last_run_at INTEGER,
       last_result TEXT,
-      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed', 'running')),
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
-    INSERT INTO tasks_new (id, name, prompt, schedule_type, interval_seconds, next_run_at, last_run_at, last_result, status, created_at)
-      SELECT id, name, prompt, schedule_type, interval_seconds, next_run_at, last_run_at, last_result, status, created_at FROM tasks;
+    INSERT INTO tasks_new (id, name, prompt, schedule_type, interval_seconds, cron_expression, next_run_at, last_run_at, last_result, status, created_at)
+      SELECT id, name, prompt, schedule_type, interval_seconds, cron_expression, next_run_at, last_run_at, last_result, status, created_at FROM tasks;
     DROP TABLE tasks;
     ALTER TABLE tasks_new RENAME TO tasks;
     COMMIT;
@@ -67,7 +67,7 @@ export interface Task {
   next_run_at: number;
   last_run_at: number | null;
   last_result: string | null;
-  status: "active" | "completed";
+  status: "active" | "completed" | "running";
   created_at: number;
 }
 
@@ -117,6 +117,22 @@ export function getDueTasks(): Task[] {
     .all(now) as Task[];
 }
 
+export function markTaskRunning(id: number): boolean {
+  const result = db
+    .prepare("UPDATE tasks SET status = 'running' WHERE id = ? AND status = 'active'")
+    .run(id);
+  return result.changes > 0;
+}
+
+export function resetStuckRunningTasks(): void {
+  const result = db
+    .prepare("UPDATE tasks SET status = 'active' WHERE status = 'running'")
+    .run();
+  if (result.changes > 0) {
+    log.info("db", `Reset ${result.changes} stuck running task(s) to active`);
+  }
+}
+
 export function updateTaskAfterRun(
   id: number,
   result: string,
@@ -133,12 +149,12 @@ export function updateTaskAfterRun(
   } else if (task.schedule_type === "cron") {
     const nextRun = getNextCronRun(task.cron_expression!);
     db.prepare(
-      "UPDATE tasks SET last_run_at = ?, last_result = ?, next_run_at = ? WHERE id = ?",
+      "UPDATE tasks SET last_run_at = ?, last_result = ?, next_run_at = ?, status = 'active' WHERE id = ?",
     ).run(now, result, nextRun, id);
   } else {
     const nextRun = now + (task.interval_seconds || 0);
     db.prepare(
-      "UPDATE tasks SET last_run_at = ?, last_result = ?, next_run_at = ? WHERE id = ?",
+      "UPDATE tasks SET last_run_at = ?, last_result = ?, next_run_at = ?, status = 'active' WHERE id = ?",
     ).run(now, result, nextRun, id);
   }
 }
@@ -146,7 +162,7 @@ export function updateTaskAfterRun(
 export function cancelTask(id: number): boolean {
   const result = db
     .prepare(
-      "UPDATE tasks SET status = 'completed' WHERE id = ? AND status = 'active'",
+      "UPDATE tasks SET status = 'completed' WHERE id = ? AND status IN ('active', 'running')",
     )
     .run(id);
   return result.changes > 0;
