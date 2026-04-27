@@ -22,8 +22,7 @@ Do NOT add caveats about sessions or expiration — tasks persist until cancelle
 
 **Choosing the right scheduler:**
 - Use `schedule_task` (this internal scheduler) for ALL recurring tasks by default: web checks, monitoring, reminders, API calls, Telegram reports, etc.
-- Only use Claude remote triggers (CCR/RemoteTrigger, via claude.ai) when the task specifically requires a full isolated cloud agent with a git repo checkout — e.g., code analysis, opening PRs, complex coding tasks.
-- **IMPORTANT: Before creating a Claude remote trigger, you MUST explicitly explain to the user why a remote trigger is needed and get their approval. Never create a remote trigger without user confirmation.**
+- Only use Claude remote triggers (CCR/RemoteTrigger, via claude.ai) when the task SPECIFICALLY ASKED FOR.
 - When in doubt, use `schedule_task`.
 
 ## Memory
