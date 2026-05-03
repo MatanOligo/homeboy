@@ -223,7 +223,7 @@ const updateTaskTool = tool(
 
 const saveMemory = tool(
   "save_memory",
-  "Save important information to persistent memory. Use this to remember facts, preferences, or anything the user asks you to remember. Memory persists across sessions. Always tell the user what you saved.",
+  "Append an entry to persistent memory. Use this to add new facts, preferences, or anything the user asks you to remember. Memory persists across sessions. Always tell the user what you saved.",
   {
     content: z
       .string()
@@ -257,8 +257,56 @@ const saveMemory = tool(
   },
 );
 
+const setMemory = tool(
+  "set_memory",
+  "Completely overwrite persistent memory with new content. Use this when you want to rewrite, reorganise, or clean up memory entirely — not just add to it. The previous memory is replaced in full. Always tell the user what the new memory contains.",
+  {
+    content: z
+      .string()
+      .describe(
+        "The full new memory content. This replaces everything currently in memory.",
+      ),
+  },
+  async (args) => {
+    mkdirSync(dirname(config.memoryFile), { recursive: true });
+    writeFileSync(config.memoryFile, args.content.trimEnd() + "\n");
+    log.info("memory", `Memory rewritten (${args.content.length} chars)`);
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Memory rewritten. New content:\n${args.content}`,
+        },
+      ],
+    };
+  },
+);
+
+const loadMemory = tool(
+  "load_memory",
+  "Read the current contents of persistent memory and return it. Use this whenever you want to review what has been remembered, or when the user asks to see their memory.",
+  {},
+  async () => {
+    let content = "";
+    try {
+      content = readFileSync(config.memoryFile, "utf-8").trim();
+    } catch {}
+
+    if (!content) {
+      return {
+        content: [{ type: "text" as const, text: "Memory is empty." }],
+      };
+    }
+
+    return {
+      content: [{ type: "text" as const, text: content }],
+    };
+  },
+);
+
 export const taskToolsServer = createSdkMcpServer({
   name: "homeboy-tasks",
   version: "1.0.0",
-  tools: [scheduleTask, listTasks, cancelTaskTool, deleteTaskTool, updateTaskTool, saveMemory],
+  tools: [scheduleTask, listTasks, cancelTaskTool, deleteTaskTool, updateTaskTool, saveMemory, setMemory, loadMemory],
 });
