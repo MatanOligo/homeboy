@@ -157,6 +157,25 @@ export function deleteTask(id: number): boolean {
   return result.changes > 0;
 }
 
+export function enableTask(id: number): boolean {
+  const task = getTask(id);
+  if (!task || task.status === "active") return false;
+
+  let nextRunAt: number;
+  if (task.schedule_type === "cron") {
+    nextRunAt = getNextCronRun(task.cron_expression!);
+  } else if (task.schedule_type === "interval") {
+    nextRunAt = Math.floor(Date.now() / 1000) + (task.interval_seconds || 0);
+  } else {
+    return false; // once tasks can't be re-enabled
+  }
+
+  const result = db
+    .prepare("UPDATE tasks SET status = 'active', next_run_at = ? WHERE id = ?")
+    .run(nextRunAt, id);
+  return result.changes > 0;
+}
+
 export function updateTask(
   id: number,
   updates: {

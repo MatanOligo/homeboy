@@ -9,7 +9,8 @@ import {
   setModel,
   getSessionId,
 } from "./assistant.js";
-import { getAllTasks, getTask, cancelTask } from "./db.js";
+import { getAllTasks, getTask, cancelTask, deleteTask, enableTask } from "./db.js";
+import type { Task } from "./db.js";
 import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
 
@@ -220,6 +221,19 @@ function formatTaskDetail(t: { id: number; name: string; status: string; schedul
   );
 }
 
+function taskActionKeyboard(t: Task): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  if (t.schedule_type !== "once") {
+    if (t.status === "active") {
+      kb.text("⏸ Disable", `task_toggle:${t.id}`);
+    } else {
+      kb.text("▶️ Enable", `task_toggle:${t.id}`);
+    }
+  }
+  kb.text("🗑 Delete", `task_delete:${t.id}`);
+  return kb;
+}
+
 // /tasks [id] — list tasks or show full details of a specific task
 bot.command("tasks", async (ctx) => {
   const idStr = ctx.match?.trim();
@@ -274,7 +288,7 @@ bot.command("tasks", async (ctx) => {
   }
 });
 
-// Callback query handler — inline button tapped: show full task details
+// Callback: show task detail with action buttons
 bot.callbackQuery(/^task:(\d+)$/, async (ctx) => {
   const id = parseInt(ctx.match[1], 10);
   log.info("cmd", `/tasks callback — detail for #${id}`);
@@ -285,9 +299,89 @@ bot.callbackQuery(/^task:(\d+)$/, async (ctx) => {
     return;
   }
   try {
-    await ctx.reply(formatTaskDetail(task), { parse_mode: "Markdown" });
+    await ctx.reply(formatTaskDetail(task), {
+      parse_mode: "Markdown",
+      reply_markup: taskActionKeyboard(task),
+    });
   } catch {
-    await ctx.reply(formatTaskDetail(task));
+    await ctx.reply(formatTaskDetail(task), { reply_markup: taskActionKeyboard(task) });
+  }
+});
+
+// Callback: toggle enable/disable
+bot.callbackQuery(/^task_toggle:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const task = getTask(id);
+  if (!task) {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    return;
+  }
+
+  let ok: boolean;
+  let actionText: string;
+  if (task.status === "active") {
+    ok = cancelTask(id);
+    actionText = "Disabled";
+  } else {
+    ok = enableTask(id);
+    actionText = "Enabled";
+  }
+
+  if (!ok) {
+    await ctx.answerCallbackQuery({ text: "Could not update task." });
+    return;
+  }
+
+  await ctx.answerCallbackQuery({ text: `${actionText} ✓` });
+  const updated = getTask(id)!;
+  log.info("cmd", `task_toggle #${id} → ${updated.status}`);
+  try {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      parse_mode: "Markdown",
+      reply_markup: taskActionKeyboard(updated),
+    });
+  } catch {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      reply_markup: taskActionKeyboard(updated),
+    });
+  }
+});
+
+// Callback: delete confirmation prompt
+bot.callbackQuery(/^task_delete:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  await ctx.answerCallbackQuery();
+  const task = getTask(id);
+  if (!task) {
+    await ctx.editMessageText(`Task #${id} not found.`);
+    return;
+  }
+  const kb = new InlineKeyboard()
+    .text("✅ Yes, delete", `task_delete_confirm:${id}`)
+    .text("❌ Cancel", `task:${id}`);
+  try {
+    await ctx.editMessageText(`Delete *${task.name}* (#${id})?`, {
+      parse_mode: "Markdown",
+      reply_markup: kb,
+    });
+  } catch {
+    await ctx.editMessageText(`Delete "${task.name}" (#${id})?`, { reply_markup: kb });
+  }
+});
+
+// Callback: confirm delete
+bot.callbackQuery(/^task_delete_confirm:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const task = getTask(id);
+  const name = task?.name ?? `#${id}`;
+  const ok = deleteTask(id);
+  if (ok) {
+    log.info("cmd", `task_delete_confirm — deleted #${id}`);
+    await ctx.answerCallbackQuery({ text: "Deleted ✓" });
+    await ctx.editMessageText(`🗑 Task "${name}" deleted.`);
+  } else {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    await ctx.editMessageText(`Task #${id} not found.`);
   }
 });
 
