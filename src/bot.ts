@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
 import { readFileSync } from "fs";
 import { config } from "./config.js";
 import {
@@ -9,7 +9,8 @@ import {
   setModel,
   getSessionId,
 } from "./assistant.js";
-import { getAllTasks, cancelTask } from "./db.js";
+import { getAllTasks, getTask, cancelTask, deleteTask, enableTask } from "./db.js";
+import type { Task } from "./db.js";
 import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
 
@@ -118,8 +119,147 @@ bot.command("schedule", async (ctx) => {
   }
 });
 
-// /tasks — list all tasks
+function cronToEnglish(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+  const [min, hour, dom, month, dow] = parts;
+
+  const pad = (n: string) => n.padStart(2, "0");
+  const formatTime = (h: string, m: string) => {
+    const hNum = parseInt(h, 10);
+    const mNum = parseInt(m, 10);
+    if (isNaN(hNum) || isNaN(mNum)) return null;
+    const ampm = hNum < 12 ? "AM" : "PM";
+    const h12 = hNum === 0 ? 12 : hNum > 12 ? hNum - 12 : hNum;
+    return `${h12}:${pad(String(mNum))} ${ampm}`;
+  };
+
+  const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const ordinal = (n: number) => {
+    const s = ["th","st","nd","rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  // every N minutes: */N * * * *
+  if (min.startsWith("*/") && hour === "*" && dom === "*" && month === "*" && dow === "*") {
+    const n = parseInt(min.slice(2), 10);
+    return `every ${n} minute${n !== 1 ? "s" : ""}`;
+  }
+
+  // every N hours: 0 */N * * *
+  if (min === "0" && hour.startsWith("*/") && dom === "*" && month === "*" && dow === "*") {
+    const n = parseInt(hour.slice(2), 10);
+    return `every ${n} hour${n !== 1 ? "s" : ""}`;
+  }
+
+  // every day at HH:MM: M H * * *
+  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && dow === "*") {
+    const t = formatTime(hour, min);
+    if (t) return `every day at ${t}`;
+  }
+
+  // weekdays at HH:MM: M H * * 1-5
+  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && dow === "1-5") {
+    const t = formatTime(hour, min);
+    if (t) return `weekdays at ${t}`;
+  }
+
+  // weekends at HH:MM: M H * * 6,0  or  M H * * 0,6
+  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && (dow === "6,0" || dow === "0,6" || dow === "0,6" || dow === "6-7")) {
+    const t = formatTime(hour, min);
+    if (t) return `weekends at ${t}`;
+  }
+
+  // specific day of week: M H * * D
+  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && /^[0-6]$/.test(dow)) {
+    const t = formatTime(hour, min);
+    const dayName = DAYS[parseInt(dow, 10)];
+    if (t && dayName) return `every ${dayName} at ${t}`;
+  }
+
+  // day of month: M H D * *
+  if (!min.includes("*") && !hour.includes("*") && !dom.includes("*") && month === "*" && dow === "*") {
+    const t = formatTime(hour, min);
+    const d = parseInt(dom, 10);
+    if (t && !isNaN(d)) return `${ordinal(d)} of every month at ${t}`;
+  }
+
+  // specific date: M H D Mo *
+  if (!min.includes("*") && !hour.includes("*") && !dom.includes("*") && !month.includes("*") && dow === "*") {
+    const t = formatTime(hour, min);
+    const d = parseInt(dom, 10);
+    const mo = parseInt(month, 10);
+    if (t && !isNaN(d) && !isNaN(mo) && mo >= 1 && mo <= 12) {
+      return `${MONTHS[mo - 1]} ${ordinal(d)} at ${t}`;
+    }
+  }
+
+  // every minute: * * * * *
+  if (cron.trim() === "* * * * *") return "every minute";
+
+  return cron; // fallback: raw cron
+}
+
+function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number | null; cron_expression: string | null }): string {
+  if (t.schedule_type === "interval") return `every ${formatDuration(t.interval_seconds!)}`;
+  if (t.schedule_type === "cron") return cronToEnglish(t.cron_expression!);
+  return "one-time";
+}
+
+function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string }): string {
+  const schedule = formatTaskSchedule(t);
+  const nextRun = t.status === "active" ? new Date(t.next_run_at * 1000).toLocaleString() : "done";
+  return (
+    `*Task #${t.id}*\n` +
+    `Title: ${t.name}\n` +
+    `Schedule: ${schedule}\n` +
+    `Status: ${t.status}\n` +
+    `Next run: ${nextRun}\n` +
+    `Prompt: ${t.prompt}`
+  );
+}
+
+function taskActionKeyboard(t: Task): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  if (t.schedule_type !== "once") {
+    if (t.status === "active") {
+      kb.text("⏸ Disable", `task_toggle:${t.id}`);
+    } else {
+      kb.text("▶️ Enable", `task_toggle:${t.id}`);
+    }
+  }
+  kb.text("🗑 Delete", `task_delete:${t.id}`);
+  return kb;
+}
+
+// /tasks [id] — list tasks or show full details of a specific task
 bot.command("tasks", async (ctx) => {
+  const idStr = ctx.match?.trim();
+
+  // /tasks <id> — show full details of a specific task
+  if (idStr) {
+    const id = parseInt(idStr, 10);
+    if (isNaN(id)) {
+      await ctx.reply("Usage: /tasks [id]");
+      return;
+    }
+    log.info("cmd", `/tasks — detail for #${id}`);
+    const task = getTask(id);
+    if (!task) {
+      await ctx.reply(`Task #${id} not found.`);
+      return;
+    }
+    try {
+      await ctx.reply(formatTaskDetail(task), { parse_mode: "Markdown" });
+    } catch {
+      await ctx.reply(formatTaskDetail(task));
+    }
+    return;
+  }
+
+  // /tasks — brief overview with inline buttons
   log.info("cmd", "/tasks");
   const tasks = getAllTasks();
 
@@ -130,22 +270,118 @@ bot.command("tasks", async (ctx) => {
 
   const lines = tasks.map((t) => {
     const status = t.status === "active" ? "●" : "○";
-    const schedule =
-      t.schedule_type === "interval"
-        ? `every ${formatDuration(t.interval_seconds!)}`
-        : t.schedule_type === "cron"
-        ? `cron(${t.cron_expression})`
-        : "one-time";
-    const nextRun =
-      t.status === "active"
-        ? new Date(t.next_run_at * 1000).toLocaleString()
-        : "done";
-    return `${status} #${t.id} — ${t.name}\n   ${schedule} | Next: ${nextRun}\n   Prompt: ${t.prompt}`;
+    const schedule = formatTaskSchedule(t);
+    return `${status} #${t.id} — ${t.name}  [${schedule}]`;
   });
 
-  const chunks = chunkMessage("Tasks:\n\n" + lines.join("\n\n"));
-  for (const chunk of chunks) {
-    await ctx.reply(chunk);
+  const keyboard = new InlineKeyboard();
+  for (const t of tasks) {
+    keyboard.text(t.name, `task:${t.id}`).row();
+  }
+
+  try {
+    await ctx.reply("Tasks:\n\n" + lines.join("\n"), {
+      reply_markup: keyboard,
+    });
+  } catch {
+    await ctx.reply("Tasks:\n\n" + lines.join("\n"));
+  }
+});
+
+// Callback: show task detail with action buttons
+bot.callbackQuery(/^task:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  log.info("cmd", `/tasks callback — detail for #${id}`);
+  await ctx.answerCallbackQuery();
+  const task = getTask(id);
+  if (!task) {
+    await ctx.reply(`Task #${id} not found.`);
+    return;
+  }
+  try {
+    await ctx.reply(formatTaskDetail(task), {
+      parse_mode: "Markdown",
+      reply_markup: taskActionKeyboard(task),
+    });
+  } catch {
+    await ctx.reply(formatTaskDetail(task), { reply_markup: taskActionKeyboard(task) });
+  }
+});
+
+// Callback: toggle enable/disable
+bot.callbackQuery(/^task_toggle:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const task = getTask(id);
+  if (!task) {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    return;
+  }
+
+  let ok: boolean;
+  let actionText: string;
+  if (task.status === "active") {
+    ok = cancelTask(id);
+    actionText = "Disabled";
+  } else {
+    ok = enableTask(id);
+    actionText = "Enabled";
+  }
+
+  if (!ok) {
+    await ctx.answerCallbackQuery({ text: "Could not update task." });
+    return;
+  }
+
+  await ctx.answerCallbackQuery({ text: `${actionText} ✓` });
+  const updated = getTask(id)!;
+  log.info("cmd", `task_toggle #${id} → ${updated.status}`);
+  try {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      parse_mode: "Markdown",
+      reply_markup: taskActionKeyboard(updated),
+    });
+  } catch {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      reply_markup: taskActionKeyboard(updated),
+    });
+  }
+});
+
+// Callback: delete confirmation prompt
+bot.callbackQuery(/^task_delete:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  await ctx.answerCallbackQuery();
+  const task = getTask(id);
+  if (!task) {
+    await ctx.editMessageText(`Task #${id} not found.`);
+    return;
+  }
+  const kb = new InlineKeyboard()
+    .text("✅ Yes, delete", `task_delete_confirm:${id}`)
+    .text("❌ Cancel", `task:${id}`);
+  try {
+    await ctx.editMessageText(`Delete *${task.name}* (#${id})?`, {
+      parse_mode: "Markdown",
+      reply_markup: kb,
+    });
+  } catch {
+    await ctx.editMessageText(`Delete "${task.name}" (#${id})?`, { reply_markup: kb });
+  }
+});
+
+// Callback: confirm delete
+bot.callbackQuery(/^task_delete_confirm:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const task = getTask(id);
+  const name = task?.name ?? `#${id}`;
+  const ok = deleteTask(id);
+  if (ok) {
+    log.info("cmd", `task_delete_confirm — deleted #${id}`);
+    await ctx.answerCallbackQuery({ text: "Deleted ✓" });
+    await ctx.editMessageText(`🗑 Task "${name}" deleted.`);
+  } else {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    await ctx.editMessageText(`Task #${id} not found.`);
   }
 });
 
