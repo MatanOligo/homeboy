@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
 import { readFileSync } from "fs";
 import { config } from "./config.js";
 import {
@@ -9,7 +9,7 @@ import {
   setModel,
   getSessionId,
 } from "./assistant.js";
-import { getAllTasks, cancelTask } from "./db.js";
+import { getAllTasks, getTask, cancelTask } from "./db.js";
 import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
 
@@ -118,8 +118,51 @@ bot.command("schedule", async (ctx) => {
   }
 });
 
-// /tasks — list all tasks
+function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number | null; cron_expression: string | null }): string {
+  if (t.schedule_type === "interval") return `every ${formatDuration(t.interval_seconds!)}`;
+  if (t.schedule_type === "cron") return t.cron_expression!;
+  return "one-time";
+}
+
+function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string }): string {
+  const schedule = formatTaskSchedule(t);
+  const nextRun = t.status === "active" ? new Date(t.next_run_at * 1000).toLocaleString() : "done";
+  return (
+    `*Task #${t.id}*\n` +
+    `Title: ${t.name}\n` +
+    `Schedule: ${schedule}\n` +
+    `Status: ${t.status}\n` +
+    `Next run: ${nextRun}\n` +
+    `Prompt: ${t.prompt}`
+  );
+}
+
+// /tasks [id] — list tasks or show full details of a specific task
 bot.command("tasks", async (ctx) => {
+  const idStr = ctx.match?.trim();
+
+  // /tasks <id> — show full details of a specific task
+  if (idStr) {
+    const id = parseInt(idStr, 10);
+    if (isNaN(id)) {
+      await ctx.reply("Usage: /tasks [id]");
+      return;
+    }
+    log.info("cmd", `/tasks — detail for #${id}`);
+    const task = getTask(id);
+    if (!task) {
+      await ctx.reply(`Task #${id} not found.`);
+      return;
+    }
+    try {
+      await ctx.reply(formatTaskDetail(task), { parse_mode: "Markdown" });
+    } catch {
+      await ctx.reply(formatTaskDetail(task));
+    }
+    return;
+  }
+
+  // /tasks — brief overview with inline buttons
   log.info("cmd", "/tasks");
   const tasks = getAllTasks();
 
@@ -130,22 +173,38 @@ bot.command("tasks", async (ctx) => {
 
   const lines = tasks.map((t) => {
     const status = t.status === "active" ? "●" : "○";
-    const schedule =
-      t.schedule_type === "interval"
-        ? `every ${formatDuration(t.interval_seconds!)}`
-        : t.schedule_type === "cron"
-        ? `cron(${t.cron_expression})`
-        : "one-time";
-    const nextRun =
-      t.status === "active"
-        ? new Date(t.next_run_at * 1000).toLocaleString()
-        : "done";
-    return `${status} #${t.id} — ${t.name}\n   ${schedule} | Next: ${nextRun}\n   Prompt: ${t.prompt}`;
+    const schedule = formatTaskSchedule(t);
+    return `${status} #${t.id} — ${t.name}  [${schedule}]`;
   });
 
-  const chunks = chunkMessage("Tasks:\n\n" + lines.join("\n\n"));
-  for (const chunk of chunks) {
-    await ctx.reply(chunk);
+  const keyboard = new InlineKeyboard();
+  for (const t of tasks) {
+    keyboard.text(t.name, `task:${t.id}`).row();
+  }
+
+  try {
+    await ctx.reply("Tasks:\n\n" + lines.join("\n"), {
+      reply_markup: keyboard,
+    });
+  } catch {
+    await ctx.reply("Tasks:\n\n" + lines.join("\n"));
+  }
+});
+
+// Callback query handler — inline button tapped: show full task details
+bot.callbackQuery(/^task:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  log.info("cmd", `/tasks callback — detail for #${id}`);
+  await ctx.answerCallbackQuery();
+  const task = getTask(id);
+  if (!task) {
+    await ctx.reply(`Task #${id} not found.`);
+    return;
+  }
+  try {
+    await ctx.reply(formatTaskDetail(task), { parse_mode: "Markdown" });
+  } catch {
+    await ctx.reply(formatTaskDetail(task));
   }
 });
 
