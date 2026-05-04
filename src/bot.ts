@@ -11,6 +11,7 @@ import {
 } from "./assistant.js";
 import { getAllTasks, getTask, cancelTask, deleteTask, enableTask } from "./db.js";
 import type { Task } from "./db.js";
+import { executeTask } from "./scheduler.js";
 import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
 
@@ -230,7 +231,10 @@ function taskActionKeyboard(t: Task): InlineKeyboard {
       kb.text("▶️ Enable", `task_toggle:${t.id}`);
     }
   }
-  kb.text("🗑 Delete", `task_delete:${t.id}`);
+  if (t.status === "active") {
+    kb.text("⚡ Run now", `task_run:${t.id}`);
+  }
+  kb.row().text("🗑 Delete", `task_delete:${t.id}`);
   return kb;
 }
 
@@ -345,6 +349,25 @@ bot.callbackQuery(/^task_toggle:(\d+)$/, async (ctx) => {
       reply_markup: taskActionKeyboard(updated),
     });
   }
+});
+
+// Callback: run task immediately
+bot.callbackQuery(/^task_run:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const task = getTask(id);
+  if (!task) {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    return;
+  }
+  if (task.status !== "active") {
+    await ctx.answerCallbackQuery({ text: "Task is not active." });
+    return;
+  }
+  await ctx.answerCallbackQuery({ text: "Running now..." });
+  log.info("cmd", `task_run — manually triggering #${id}`);
+  executeTask(task).catch((err) => {
+    log.error("cmd", `task_run #${id} error`, { error: err.message });
+  });
 });
 
 // Callback: delete confirmation prompt
