@@ -9,7 +9,6 @@ curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
     {"command":"new","description":"Start a fresh conversation"},
     {"command":"schedule","description":"Schedule a task"},
     {"command":"tasks","description":"List all scheduled tasks"},
-    {"command":"cancel","description":"Cancel a scheduled task"},
     {"command":"model","description":"View or switch Claude model"},
     {"command":"status","description":"Bot status, uptime, session info"},
     {"command":"log","description":"Show recent log entries"},
@@ -52,9 +51,6 @@ Lists all scheduled tasks with their status, schedule, next run time, and prompt
 
 - `●` = active
 - `○` = completed/cancelled
-
-### /cancel <id>
-Cancel an active scheduled task by its ID (shown in `/tasks` output).
 
 ### /restart
 Restarts the bot process. The bot sends "Restarting..." and exits — systemd automatically brings it back up within a few seconds.

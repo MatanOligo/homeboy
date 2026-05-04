@@ -53,7 +53,6 @@ bot.command("start", async (ctx) => {
       "/new — Start a fresh conversation\n" +
       "/schedule — Schedule a task\n" +
       "/tasks — List scheduled tasks\n" +
-      "/cancel — Cancel a task\n" +
       "/model — View or switch Claude model\n" +
       "/status — Bot status and session info\n" +
       "/log — Show recent log entries\n" +
@@ -70,7 +69,6 @@ bot.command("help", async (ctx) => {
       "/new — Start a fresh conversation\n" +
       "/schedule <desc> — Schedule a task\n" +
       "/tasks — List all scheduled tasks\n" +
-      "/cancel <id> — Cancel a task\n" +
       "/model [name] — View or switch Claude model\n" +
       "/status — Bot status, uptime, session info\n" +
       "/log [n] — Show last n log entries (default 20)\n" +
@@ -408,24 +406,6 @@ bot.callbackQuery(/^task_delete_confirm:(\d+)$/, async (ctx) => {
   }
 });
 
-// /cancel <id> — cancel a task
-bot.command("cancel", async (ctx) => {
-  const idStr = ctx.match?.trim();
-  const id = parseInt(idStr || "", 10);
-
-  if (!id) {
-    await ctx.reply("Usage: /cancel <task_id>");
-    return;
-  }
-
-  log.info("cmd", `/cancel — task #${id}`);
-
-  if (cancelTask(id)) {
-    await ctx.reply(`Task #${id} cancelled.`);
-  } else {
-    await ctx.reply(`Task #${id} not found or already completed.`);
-  }
-});
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
