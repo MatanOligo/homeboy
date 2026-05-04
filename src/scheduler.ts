@@ -48,7 +48,7 @@ async function checkAndRunTasks(): Promise<void> {
   }
 }
 
-async function executeTask(task: Task): Promise<void> {
+export async function executeTask(task: Task): Promise<void> {
   log.info("scheduler", `Running task #${task.id}: ${task.name}`);
 
   if (botApi && chatId) {
