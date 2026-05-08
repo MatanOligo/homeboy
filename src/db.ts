@@ -22,6 +22,7 @@ db.exec(`
     last_run_at INTEGER,
     last_result TEXT,
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+    report_result INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 `);
@@ -55,6 +56,13 @@ if (tableInfo && !tableInfo.sql.includes("'cron'")) {
   `);
 }
 
+// Migration: add report_result column if missing
+const taskColumns = (db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>).map((c) => c.name);
+if (!taskColumns.includes("report_result")) {
+  log.info("db", "Migrating tasks table: adding report_result column");
+  db.exec("ALTER TABLE tasks ADD COLUMN report_result INTEGER NOT NULL DEFAULT 1");
+}
+
 log.info("db", "SQLite initialized", { path: DB_PATH });
 
 export interface Task {
@@ -68,6 +76,7 @@ export interface Task {
   last_run_at: number | null;
   last_result: string | null;
   status: "active" | "completed";
+  report_result: number; // 1 = send result to chat, 0 = silent
   created_at: number;
 }
 
@@ -203,6 +212,14 @@ export function updateTask(
     "UPDATE tasks SET prompt = ?, cron_expression = ?, interval_seconds = ?, next_run_at = ? WHERE id = ?",
   ).run(newPrompt, newCronExpression, newIntervalSeconds, newNextRunAt, id);
 
+  return getTask(id);
+}
+
+export function toggleTaskReporting(id: number): Task | undefined {
+  const task = getTask(id);
+  if (!task) return undefined;
+  const newValue = task.report_result ? 0 : 1;
+  db.prepare("UPDATE tasks SET report_result = ? WHERE id = ?").run(newValue, id);
   return getTask(id);
 }
 

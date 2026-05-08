@@ -9,7 +9,7 @@ import {
   setModel,
   getSessionId,
 } from "./assistant.js";
-import { getAllTasks, getTask, cancelTask, deleteTask, enableTask } from "./db.js";
+import { getAllTasks, getTask, cancelTask, deleteTask, enableTask, toggleTaskReporting } from "./db.js";
 import type { Task } from "./db.js";
 import { executeTask } from "./scheduler.js";
 import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
@@ -32,8 +32,10 @@ bot.use(async (ctx, next) => {
 });
 
 // Drop stale messages (sent while bot was down)
+// Note: callback queries are never dropped — their message.date reflects the
+// original message, not when the button was clicked, so age checks are meaningless.
 bot.use(async (ctx, next) => {
-  const messageDate = ctx.message?.date || ctx.callbackQuery?.message?.date;
+  const messageDate = ctx.message?.date;
   if (messageDate) {
     const age = Math.floor(Date.now() / 1000) - messageDate;
     if (age > config.maxMessageAge) {
@@ -207,15 +209,17 @@ function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number
   return "one-time";
 }
 
-function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string }): string {
+function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string; report_result: number }): string {
   const schedule = formatTaskSchedule(t);
   const nextRun = t.status === "active" ? new Date(t.next_run_at * 1000).toLocaleString() : "done";
+  const reporting = t.report_result ? "on" : "muted";
   return (
     `*Task #${t.id}*\n` +
     `Title: ${t.name}\n` +
     `Schedule: ${schedule}\n` +
     `Status: ${t.status}\n` +
     `Next run: ${nextRun}\n` +
+    `Reporting: ${reporting}\n` +
     `Prompt: ${t.prompt}`
   );
 }
@@ -232,6 +236,8 @@ function taskActionKeyboard(t: Task): InlineKeyboard {
   if (t.status === "active") {
     kb.text("⚡ Run now", `task_run:${t.id}`);
   }
+  const reportLabel = t.report_result ? "🔕 Mute" : "📢 Unmute";
+  kb.row().text(reportLabel, `task_report_toggle:${t.id}`);
   kb.row().text("🗑 Delete", `task_delete:${t.id}`);
   return kb;
 }
@@ -366,6 +372,29 @@ bot.callbackQuery(/^task_run:(\d+)$/, async (ctx) => {
   executeTask(task).catch((err) => {
     log.error("cmd", `task_run #${id} error`, { error: err.message });
   });
+});
+
+// Callback: toggle reporting on/off
+bot.callbackQuery(/^task_report_toggle:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  const updated = toggleTaskReporting(id);
+  if (!updated) {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    return;
+  }
+  const label = updated.report_result ? "Reporting on ✓" : "Muted ✓";
+  await ctx.answerCallbackQuery({ text: label });
+  log.info("cmd", `task_report_toggle #${id} → report_result=${updated.report_result}`);
+  try {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      parse_mode: "Markdown",
+      reply_markup: taskActionKeyboard(updated),
+    });
+  } catch {
+    await ctx.editMessageText(formatTaskDetail(updated), {
+      reply_markup: taskActionKeyboard(updated),
+    });
+  }
 });
 
 // Callback: delete confirmation prompt
