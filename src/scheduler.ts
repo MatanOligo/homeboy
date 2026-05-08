@@ -51,7 +51,9 @@ async function checkAndRunTasks(): Promise<void> {
 export async function executeTask(task: Task): Promise<void> {
   log.info("scheduler", `Running task #${task.id}: ${task.name}`);
 
-  if (botApi && chatId) {
+  const reporting = task.report_result !== 0;
+
+  if (botApi && chatId && reporting) {
     await botApi.sendMessage(chatId, `Running task #${task.id}: ${task.name}...`);
   }
 
@@ -63,7 +65,7 @@ export async function executeTask(task: Task): Promise<void> {
       resultLength: result.length,
     });
 
-    if (botApi && chatId) {
+    if (botApi && chatId && reporting) {
       const header = `Task #${task.id} (${task.name}) completed:\n\n`;
       const chunks = chunkMessage(header + result);
       for (const chunk of chunks) {
@@ -73,6 +75,10 @@ export async function executeTask(task: Task): Promise<void> {
           await botApi.sendMessage(chatId, chunk);
         }
       }
+    }
+
+    // Always send outbox files, even when task reporting is muted
+    if (botApi && chatId) {
       await sendOutboxFiles(botApi, chatId);
     }
   } catch (error: any) {
@@ -81,6 +87,7 @@ export async function executeTask(task: Task): Promise<void> {
 
     log.error("scheduler", `Task #${task.id} error`, { error: errorMsg });
 
+    // Always report errors regardless of reporting setting
     if (botApi && chatId) {
       await botApi.sendMessage(
         chatId,

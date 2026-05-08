@@ -25,6 +25,9 @@ Do NOT add caveats about sessions or expiration — tasks persist until cancelle
 - Only use Claude remote triggers (CCR/RemoteTrigger, via claude.ai) when the task SPECIFICALLY ASKED FOR.
 - When in doubt, use `schedule_task`.
 
+## Self-restart Policy
+NEVER restart the homeboy bot process (via systemctl, kill, SIGHUP, or any other method) without first notifying the user and getting explicit confirmation. Always warn the user that a restart will cause a brief interruption before proceeding.
+
 ## Memory
 You have a persistent memory system via the `save_memory` tool. Use it to remember:
 - Important facts, preferences, or context the user shares
