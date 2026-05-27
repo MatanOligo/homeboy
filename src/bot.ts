@@ -12,7 +12,7 @@ import {
 import { getAllTasks, getTask, cancelTask, deleteTask, enableTask, toggleTaskReporting } from "./db.js";
 import type { Task } from "./db.js";
 import { executeTask } from "./scheduler.js";
-import { chunkMessage, keepTyping, sendOutboxFiles } from "./utils.js";
+import { chunkMessage, keepTyping, sendOutboxFiles, cronBeautify } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
 
 const startTime = Date.now();
@@ -120,151 +120,10 @@ bot.command("schedule", async (ctx) => {
   }
 });
 
-function cronToEnglish(cron: string): string {
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return cron;
-  const [min, hour, dom, month, dow] = parts;
-
-  const pad = (n: string) => n.padStart(2, "0");
-  const formatTime = (h: string, m: string) => {
-    const hNum = parseInt(h, 10);
-    const mNum = parseInt(m, 10);
-    if (isNaN(hNum) || isNaN(mNum)) return null;
-    const ampm = hNum < 12 ? "AM" : "PM";
-    const h12 = hNum === 0 ? 12 : hNum > 12 ? hNum - 12 : hNum;
-    return `${h12}:${pad(String(mNum))} ${ampm}`;
-  };
-
-  const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const ordinal = (n: number) => {
-    const s = ["th","st","nd","rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
-
-  // every N minutes: */N * * * *
-  if (min.startsWith("*/") && hour === "*" && dom === "*" && month === "*" && dow === "*") {
-    const n = parseInt(min.slice(2), 10);
-    return `every ${n} minute${n !== 1 ? "s" : ""}`;
-  }
-
-  // every N hours: 0 */N * * *
-  if (min === "0" && hour.startsWith("*/") && dom === "*" && month === "*" && dow === "*") {
-    const n = parseInt(hour.slice(2), 10);
-    return `every ${n} hour${n !== 1 ? "s" : ""}`;
-  }
-
-  // every day at HH:MM: M H * * *
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && dow === "*") {
-    const t = formatTime(hour, min);
-    if (t) return `every day at ${t}`;
-  }
-
-  // weekdays at HH:MM: M H * * 1-5
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && dow === "1-5") {
-    const t = formatTime(hour, min);
-    if (t) return `weekdays at ${t}`;
-  }
-
-  // weekends at HH:MM: M H * * 6,0  or  M H * * 0,6
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && (dow === "6,0" || dow === "0,6" || dow === "6-7")) {
-    const t = formatTime(hour, min);
-    if (t) return `weekends at ${t}`;
-  }
-
-  // specific day of week: M H * * D
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && /^[0-6]$/.test(dow)) {
-    const t = formatTime(hour, min);
-    const dayName = DAYS[parseInt(dow, 10)];
-    if (t && dayName) return `every ${dayName} at ${t}`;
-  }
-
-  // day of month: M H D * *
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && /^\d+$/.test(dom) && month === "*" && dow === "*") {
-    const t = formatTime(hour, min);
-    const d = parseInt(dom, 10);
-    if (t && !isNaN(d)) return `${ordinal(d)} of every month at ${t}`;
-  }
-
-  // specific date: M H D Mo *
-  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && /^\d+$/.test(dom) && /^\d+$/.test(month) && dow === "*") {
-    const t = formatTime(hour, min);
-    const d = parseInt(dom, 10);
-    const mo = parseInt(month, 10);
-    if (t && !isNaN(d) && !isNaN(mo) && mo >= 1 && mo <= 12) {
-      return `${MONTHS[mo - 1]} ${ordinal(d)} at ${t}`;
-    }
-  }
-
-  // every minute: * * * * *
-  if (cron.trim() === "* * * * *") return "every minute";
-
-  // --- General builder for complex patterns ---
-  const desc: string[] = [];
-
-  // Frequency (min + hour)
-  if (min === "*" && hour === "*") {
-    desc.push("every minute");
-  } else if (min.startsWith("*/") && hour === "*") {
-    const n = parseInt(min.slice(2), 10);
-    desc.push(`every ${n} minute${n !== 1 ? "s" : ""}`);
-  } else if (min === "0" && hour.startsWith("*/")) {
-    const n = parseInt(hour.slice(2), 10);
-    desc.push(`every ${n} hour${n !== 1 ? "s" : ""}`);
-  } else if (/^\d+$/.test(min) && /^\d+$/.test(hour)) {
-    const t = formatTime(hour, min);
-    if (t) desc.push(`at ${t}`);
-  } else if (min === "0" && /^[\d,]+$/.test(hour)) {
-    // comma-separated hours: e.g. 8,10,12,14,16,18,20,22
-    const hours = hour.split(",").map(h => {
-      const t = formatTime(h, "0");
-      return t ?? h;
-    });
-    desc.push(`at ${hours.join(", ")}`);
-  } else {
-    desc.push(`[${min} ${hour}]`);
-  }
-
-  // Day of month
-  if (dom !== "*") {
-    if (/^\d+$/.test(dom)) {
-      desc.push(`on the ${ordinal(parseInt(dom, 10))}`);
-    } else if (/^\d+-\d+$/.test(dom)) {
-      const [s, e] = dom.split("-");
-      desc.push(`on days ${s}–${e}`);
-    } else {
-      desc.push(`on day ${dom}`);
-    }
-  }
-
-  // Month
-  if (month !== "*") {
-    if (/^\d+$/.test(month)) {
-      const mo = parseInt(month, 10);
-      desc.push(mo >= 1 && mo <= 12 ? `of ${MONTHS[mo - 1]}` : `of month ${month}`);
-    } else if (/^\d+-\d+$/.test(month)) {
-      const [ms, me] = month.split("-").map(Number);
-      desc.push(`of ${MONTHS[ms - 1] ?? ms}–${MONTHS[me - 1] ?? me}`);
-    } else {
-      desc.push(`of month ${month}`);
-    }
-  }
-
-  // Day of week
-  if (dow !== "*") {
-    if (/^[0-6]$/.test(dow)) desc.push(`on ${DAYS[parseInt(dow, 10)]}`);
-    else if (dow === "1-5") desc.push("on weekdays");
-    else if (dow === "6,0" || dow === "0,6") desc.push("on weekends");
-    else desc.push(`on ${dow}`);
-  }
-
-  return desc.join(" ");
-}
 
 function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number | null; cron_expression: string | null }): string {
   if (t.schedule_type === "interval") return `every ${formatDuration(t.interval_seconds!)}`;
-  if (t.schedule_type === "cron") return cronToEnglish(t.cron_expression!);
+  if (t.schedule_type === "cron") return cronBeautify(t.cron_expression!);
   return "one-time";
 }
 
