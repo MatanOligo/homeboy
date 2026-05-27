@@ -156,39 +156,39 @@ function cronToEnglish(cron: string): string {
   }
 
   // every day at HH:MM: M H * * *
-  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && dow === "*") {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && dow === "*") {
     const t = formatTime(hour, min);
     if (t) return `every day at ${t}`;
   }
 
   // weekdays at HH:MM: M H * * 1-5
-  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && dow === "1-5") {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && dow === "1-5") {
     const t = formatTime(hour, min);
     if (t) return `weekdays at ${t}`;
   }
 
   // weekends at HH:MM: M H * * 6,0  or  M H * * 0,6
-  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && (dow === "6,0" || dow === "0,6" || dow === "0,6" || dow === "6-7")) {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && (dow === "6,0" || dow === "0,6" || dow === "6-7")) {
     const t = formatTime(hour, min);
     if (t) return `weekends at ${t}`;
   }
 
   // specific day of week: M H * * D
-  if (!min.includes("*") && !hour.includes("*") && dom === "*" && month === "*" && /^[0-6]$/.test(dow)) {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && dom === "*" && month === "*" && /^[0-6]$/.test(dow)) {
     const t = formatTime(hour, min);
     const dayName = DAYS[parseInt(dow, 10)];
     if (t && dayName) return `every ${dayName} at ${t}`;
   }
 
   // day of month: M H D * *
-  if (!min.includes("*") && !hour.includes("*") && !dom.includes("*") && month === "*" && dow === "*") {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && /^\d+$/.test(dom) && month === "*" && dow === "*") {
     const t = formatTime(hour, min);
     const d = parseInt(dom, 10);
     if (t && !isNaN(d)) return `${ordinal(d)} of every month at ${t}`;
   }
 
   // specific date: M H D Mo *
-  if (!min.includes("*") && !hour.includes("*") && !dom.includes("*") && !month.includes("*") && dow === "*") {
+  if (/^\d+$/.test(min) && /^\d+$/.test(hour) && /^\d+$/.test(dom) && /^\d+$/.test(month) && dow === "*") {
     const t = formatTime(hour, min);
     const d = parseInt(dom, 10);
     const mo = parseInt(month, 10);
@@ -200,7 +200,66 @@ function cronToEnglish(cron: string): string {
   // every minute: * * * * *
   if (cron.trim() === "* * * * *") return "every minute";
 
-  return cron; // fallback: raw cron
+  // --- General builder for complex patterns ---
+  const desc: string[] = [];
+
+  // Frequency (min + hour)
+  if (min === "*" && hour === "*") {
+    desc.push("every minute");
+  } else if (min.startsWith("*/") && hour === "*") {
+    const n = parseInt(min.slice(2), 10);
+    desc.push(`every ${n} minute${n !== 1 ? "s" : ""}`);
+  } else if (min === "0" && hour.startsWith("*/")) {
+    const n = parseInt(hour.slice(2), 10);
+    desc.push(`every ${n} hour${n !== 1 ? "s" : ""}`);
+  } else if (/^\d+$/.test(min) && /^\d+$/.test(hour)) {
+    const t = formatTime(hour, min);
+    if (t) desc.push(`at ${t}`);
+  } else if (min === "0" && /^[\d,]+$/.test(hour)) {
+    // comma-separated hours: e.g. 8,10,12,14,16,18,20,22
+    const hours = hour.split(",").map(h => {
+      const t = formatTime(h, "0");
+      return t ?? h;
+    });
+    desc.push(`at ${hours.join(", ")}`);
+  } else {
+    desc.push(`[${min} ${hour}]`);
+  }
+
+  // Day of month
+  if (dom !== "*") {
+    if (/^\d+$/.test(dom)) {
+      desc.push(`on the ${ordinal(parseInt(dom, 10))}`);
+    } else if (/^\d+-\d+$/.test(dom)) {
+      const [s, e] = dom.split("-");
+      desc.push(`on days ${s}–${e}`);
+    } else {
+      desc.push(`on day ${dom}`);
+    }
+  }
+
+  // Month
+  if (month !== "*") {
+    if (/^\d+$/.test(month)) {
+      const mo = parseInt(month, 10);
+      desc.push(mo >= 1 && mo <= 12 ? `of ${MONTHS[mo - 1]}` : `of month ${month}`);
+    } else if (/^\d+-\d+$/.test(month)) {
+      const [ms, me] = month.split("-").map(Number);
+      desc.push(`of ${MONTHS[ms - 1] ?? ms}–${MONTHS[me - 1] ?? me}`);
+    } else {
+      desc.push(`of month ${month}`);
+    }
+  }
+
+  // Day of week
+  if (dow !== "*") {
+    if (/^[0-6]$/.test(dow)) desc.push(`on ${DAYS[parseInt(dow, 10)]}`);
+    else if (dow === "1-5") desc.push("on weekdays");
+    else if (dow === "6,0" || dow === "0,6") desc.push("on weekends");
+    else desc.push(`on ${dow}`);
+  }
+
+  return desc.join(" ");
 }
 
 function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number | null; cron_expression: string | null }): string {
