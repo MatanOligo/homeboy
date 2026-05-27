@@ -10,10 +10,11 @@ const PHOTO_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 
 /**
  * Check the outbox directory for files, send them to Telegram, then clean up.
+ * Sends each file to all provided chat IDs.
  */
 export async function sendOutboxFiles(
   api: Api,
-  chatId: number,
+  chatIds: number[],
 ): Promise<void> {
   mkdirSync(config.outboxDir, { recursive: true });
 
@@ -28,29 +29,37 @@ export async function sendOutboxFiles(
     const filepath = join(config.outboxDir, filename);
     const ext = extname(filename).toLowerCase();
 
-    try {
-      if (PHOTO_EXTENSIONS.has(ext)) {
-        await api.sendPhoto(chatId, new InputFile(filepath));
-      } else if (ext === ".txt") {
-        // Send text files as messages so markdown links are clickable
-        const text = readFileSync(filepath, "utf-8");
-        const chunks = chunkMessage(text);
-        for (const chunk of chunks) {
-          try {
-            await api.sendMessage(chatId, chunk, { parse_mode: "Markdown" });
-          } catch {
-            await api.sendMessage(chatId, chunk);
+    let sentToAny = false;
+    for (const chatId of chatIds) {
+      try {
+        if (PHOTO_EXTENSIONS.has(ext)) {
+          await api.sendPhoto(chatId, new InputFile(filepath));
+        } else if (ext === ".txt") {
+          // Send text files as messages so markdown links are clickable
+          const text = readFileSync(filepath, "utf-8");
+          const chunks = chunkMessage(text);
+          for (const chunk of chunks) {
+            try {
+              await api.sendMessage(chatId, chunk, { parse_mode: "Markdown" });
+            } catch {
+              await api.sendMessage(chatId, chunk);
+            }
           }
+        } else {
+          await api.sendDocument(chatId, new InputFile(filepath));
         }
-      } else {
-        await api.sendDocument(chatId, new InputFile(filepath));
+        sentToAny = true;
+      } catch (error: any) {
+        log.error("outbox", `Failed to send file ${filename} to ${chatId}`, { error: error.message });
       }
-
-      log.info("outbox", `Sent file: ${filename}`);
-      unlinkSync(filepath);
-    } catch (error: any) {
-      log.error("outbox", `Failed to send file: ${filename}`, { error: error.message });
     }
+
+    if (sentToAny) {
+      log.info("outbox", `Sent file: ${filename} to ${chatIds.length} recipient(s)`);
+    }
+    try {
+      unlinkSync(filepath);
+    } catch {}
   }
 }
 
