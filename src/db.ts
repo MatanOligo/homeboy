@@ -23,6 +23,7 @@ db.exec(`
     last_result TEXT,
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
     report_result INTEGER NOT NULL DEFAULT 1,
+    report_to TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 `);
@@ -63,6 +64,12 @@ if (!taskColumns.includes("report_result")) {
   db.exec("ALTER TABLE tasks ADD COLUMN report_result INTEGER NOT NULL DEFAULT 1");
 }
 
+// Migration: add report_to column if missing
+if (!taskColumns.includes("report_to")) {
+  log.info("db", "Migrating tasks table: adding report_to column");
+  db.exec("ALTER TABLE tasks ADD COLUMN report_to TEXT");
+}
+
 log.info("db", "SQLite initialized", { path: DB_PATH });
 
 export interface Task {
@@ -77,6 +84,7 @@ export interface Task {
   last_result: string | null;
   status: "active" | "completed";
   report_result: number; // 1 = send result to chat, 0 = silent
+  report_to: string | null; // JSON array of Telegram user IDs, null = default to owner
   created_at: number;
 }
 
@@ -92,9 +100,10 @@ export function createTask(task: {
   interval_seconds: number | null;
   cron_expression: string | null;
   next_run_at: number;
+  report_to?: string | null;
 }): Task {
   const stmt = db.prepare(
-    "INSERT INTO tasks (name, prompt, schedule_type, interval_seconds, cron_expression, next_run_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO tasks (name, prompt, schedule_type, interval_seconds, cron_expression, next_run_at, report_to) VALUES (?, ?, ?, ?, ?, ?, ?)",
   );
   const result = stmt.run(
     task.name,
@@ -103,6 +112,7 @@ export function createTask(task: {
     task.interval_seconds,
     task.cron_expression,
     task.next_run_at,
+    task.report_to ?? null,
   );
   return getTask(result.lastInsertRowid as number)!;
 }
@@ -191,6 +201,7 @@ export function updateTask(
     prompt?: string;
     cron_expression?: string;
     interval_seconds?: number;
+    report_to?: string;
   },
 ): Task | undefined {
   const task = getTask(id);
@@ -199,6 +210,7 @@ export function updateTask(
   const newPrompt = updates.prompt ?? task.prompt;
   const newCronExpression = updates.cron_expression ?? task.cron_expression;
   const newIntervalSeconds = updates.interval_seconds ?? task.interval_seconds;
+  const newReportTo = updates.report_to !== undefined ? updates.report_to : task.report_to;
 
   // Recalculate next_run_at if the schedule changed
   let newNextRunAt = task.next_run_at;
@@ -209,9 +221,16 @@ export function updateTask(
   }
 
   db.prepare(
-    "UPDATE tasks SET prompt = ?, cron_expression = ?, interval_seconds = ?, next_run_at = ? WHERE id = ?",
-  ).run(newPrompt, newCronExpression, newIntervalSeconds, newNextRunAt, id);
+    "UPDATE tasks SET prompt = ?, cron_expression = ?, interval_seconds = ?, next_run_at = ?, report_to = ? WHERE id = ?",
+  ).run(newPrompt, newCronExpression, newIntervalSeconds, newNextRunAt, newReportTo, id);
 
+  return getTask(id);
+}
+
+export function updateTaskReportTo(id: number, reportTo: number[]): Task | undefined {
+  const task = getTask(id);
+  if (!task) return undefined;
+  db.prepare("UPDATE tasks SET report_to = ? WHERE id = ?").run(JSON.stringify(reportTo), id);
   return getTask(id);
 }
 

@@ -68,6 +68,12 @@ const scheduleTask = tool(
         "Unix timestamp for when to run (one-time tasks). null otherwise. Current unix timestamp: " +
           Math.floor(Date.now() / 1000),
       ),
+    report_to: z
+      .array(z.number())
+      .nullable()
+      .describe(
+        "List of Telegram user IDs to send the task report to. Defaults to the owner if not specified.",
+      ),
   },
   async (args) => {
     let nextRunAt: number;
@@ -79,6 +85,7 @@ const scheduleTask = tool(
       nextRunAt = Math.floor(Date.now() / 1000) + (args.interval_seconds || 0);
     }
 
+    const reportTo = args.report_to ?? [config.allowedUserId];
     const task = createTask({
       name: args.name,
       prompt: args.prompt,
@@ -86,6 +93,7 @@ const scheduleTask = tool(
       interval_seconds: args.interval_seconds,
       cron_expression: args.cron_expression,
       next_run_at: nextRunAt,
+      report_to: JSON.stringify(reportTo),
     });
 
     log.info("tools", `Task #${task.id} created: ${task.name}`);
@@ -187,12 +195,13 @@ const deleteTaskTool = tool(
 
 const updateTaskTool = tool(
   "update_task",
-  "Update an existing task's prompt and/or schedule (cron expression or interval). Only the fields you provide will be changed. If the cron expression or interval changes, next_run_at is recalculated automatically.",
+  "Update an existing task's prompt, schedule, and/or recipients. Only the fields you provide will be changed. If the cron expression or interval changes, next_run_at is recalculated automatically.",
   {
     task_id: z.number().describe("The task ID to update"),
     prompt: z.string().nullable().describe("New prompt text, or null to leave unchanged"),
     cron_expression: z.string().nullable().describe("New cron expression (for cron tasks), or null to leave unchanged"),
     interval_seconds: z.number().nullable().describe("New interval in seconds (for interval tasks), or null to leave unchanged"),
+    report_to: z.array(z.number()).nullable().describe("New list of Telegram user IDs to receive reports, or null to leave unchanged"),
   },
   async (args) => {
     const task = getTask(args.task_id);
@@ -202,10 +211,11 @@ const updateTaskTool = tool(
       };
     }
 
-    const updates: { prompt?: string; cron_expression?: string; interval_seconds?: number } = {};
+    const updates: { prompt?: string; cron_expression?: string; interval_seconds?: number; report_to?: string } = {};
     if (args.prompt != null) updates.prompt = args.prompt;
     if (args.cron_expression != null) updates.cron_expression = args.cron_expression;
     if (args.interval_seconds != null) updates.interval_seconds = args.interval_seconds;
+    if (args.report_to != null) updates.report_to = JSON.stringify(args.report_to);
 
     if (Object.keys(updates).length === 0) {
       return {

@@ -9,7 +9,7 @@ import {
   setModel,
   getSessionId,
 } from "./assistant.js";
-import { getAllTasks, getTask, cancelTask, deleteTask, enableTask, toggleTaskReporting } from "./db.js";
+import { getAllTasks, getTask, cancelTask, deleteTask, enableTask, toggleTaskReporting, updateTaskReportTo } from "./db.js";
 import type { Task } from "./db.js";
 import { executeTask } from "./scheduler.js";
 import { chunkMessage, keepTyping, sendOutboxFiles, cronBeautify } from "./utils.js";
@@ -18,6 +18,11 @@ import { log, LOG_FILE } from "./logger.js";
 const startTime = Date.now();
 
 export const bot = new Bot(config.telegramToken);
+
+// /myid — public command, no auth required. Anyone can use it to get their Telegram user ID.
+bot.command("myid", async (ctx) => {
+  await ctx.reply(`Your Telegram user ID is: \`${ctx.from?.id}\``, { parse_mode: "Markdown" });
+});
 
 // Auth middleware — silently ignore everyone except the owner
 bot.use(async (ctx, next) => {
@@ -127,10 +132,13 @@ function formatTaskSchedule(t: { schedule_type: string; interval_seconds: number
   return "one-time";
 }
 
-function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string; report_result: number }): string {
+function formatTaskDetail(t: { id: number; name: string; status: string; schedule_type: string; interval_seconds: number | null; cron_expression: string | null; next_run_at: number; prompt: string; report_result: number; report_to: string | null }): string {
   const schedule = formatTaskSchedule(t);
   const nextRun = t.status === "active" ? new Date(t.next_run_at * 1000).toLocaleString() : "done";
   const reporting = t.report_result ? "on" : "muted";
+  const recipients = t.report_to
+    ? (JSON.parse(t.report_to) as number[]).join(", ") || "none"
+    : String(config.allowedUserId);
   return (
     `*Task #${t.id}*\n` +
     `Title: ${t.name}\n` +
@@ -138,6 +146,7 @@ function formatTaskDetail(t: { id: number; name: string; status: string; schedul
     `Status: ${t.status}\n` +
     `Next run: ${nextRun}\n` +
     `Reporting: ${reporting}\n` +
+    `Recipients: ${recipients}\n` +
     `Prompt: ${t.prompt}`
   );
 }
@@ -156,6 +165,7 @@ function taskActionKeyboard(t: Task): InlineKeyboard {
   }
   const reportLabel = t.report_result ? "🔕 Mute" : "📢 Unmute";
   kb.row().text(reportLabel, `task_report_toggle:${t.id}`);
+  kb.row().text("👥 Recipients", `task_recipients:${t.id}`);
   kb.row().text("🗑 Delete", `task_delete:${t.id}`);
   return kb;
 }
@@ -315,6 +325,92 @@ bot.callbackQuery(/^task_report_toggle:(\d+)$/, async (ctx) => {
   }
 });
 
+// Callback: show recipients
+bot.callbackQuery(/^task_recipients:(\d+)$/, async (ctx) => {
+  const id = parseInt(ctx.match[1], 10);
+  await ctx.answerCallbackQuery();
+  const task = getTask(id);
+  if (!task) {
+    await ctx.reply(`Task #${id} not found.`);
+    return;
+  }
+
+  const recipients: number[] = task.report_to
+    ? (JSON.parse(task.report_to) as number[])
+    : [config.allowedUserId];
+
+  const kb = new InlineKeyboard();
+  for (const uid of recipients) {
+    const label = uid === config.allowedUserId ? `${uid} (you)` : String(uid);
+    kb.text(`➖ ${label}`, `task_remove_recipient:${id}:${uid}`).row();
+  }
+  kb.text("← Back", `task:${id}`);
+
+  const lines = recipients.length > 0
+    ? recipients.map(uid => `• \`${uid}\`${uid === config.allowedUserId ? " (you)" : ""}`)
+    : ["_none — results are silent_"];
+
+  const text =
+    `👥 *Recipients for Task #${id}*\n\n` +
+    lines.join("\n") +
+    `\n\nTo add a recipient, tell me: _"add user <id> to task ${id}"_`;
+
+  try {
+    await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: kb });
+  } catch {
+    await ctx.editMessageText(`Recipients for Task #${id}:\n\n${recipients.join(", ") || "none"}`, { reply_markup: kb });
+  }
+});
+
+// Callback: remove a recipient
+bot.callbackQuery(/^task_remove_recipient:(\d+):(\d+)$/, async (ctx) => {
+  const taskId = parseInt(ctx.match[1], 10);
+  const userId = parseInt(ctx.match[2], 10);
+
+  const task = getTask(taskId);
+  if (!task) {
+    await ctx.answerCallbackQuery({ text: "Task not found." });
+    return;
+  }
+
+  const current: number[] = task.report_to
+    ? (JSON.parse(task.report_to) as number[])
+    : [config.allowedUserId];
+  const updated = current.filter(uid => uid !== userId);
+
+  updateTaskReportTo(taskId, updated);
+  log.info("cmd", `task_remove_recipient — removed ${userId} from task #${taskId}`);
+  await ctx.answerCallbackQuery({ text: "Recipient removed ✓" });
+
+  // Refresh the recipients view
+  const updatedTask = getTask(taskId)!;
+  const recipients: number[] = updatedTask.report_to
+    ? (JSON.parse(updatedTask.report_to) as number[])
+    : [config.allowedUserId];
+
+  const kb = new InlineKeyboard();
+  for (const uid of recipients) {
+    const label = uid === config.allowedUserId ? `${uid} (you)` : String(uid);
+    kb.text(`➖ ${label}`, `task_remove_recipient:${taskId}:${uid}`).row();
+  }
+  kb.text("← Back", `task:${taskId}`);
+
+  const lines = recipients.length > 0
+    ? recipients.map(uid => `• \`${uid}\`${uid === config.allowedUserId ? " (you)" : ""}`)
+    : ["_none — results are silent_"];
+
+  const text =
+    `👥 *Recipients for Task #${taskId}*\n\n` +
+    lines.join("\n") +
+    `\n\nTo add a recipient, tell me: _"add user <id> to task ${taskId}"_`;
+
+  try {
+    await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: kb });
+  } catch {
+    await ctx.editMessageText(`Recipients for Task #${taskId}:\n\n${recipients.join(", ") || "none"}`, { reply_markup: kb });
+  }
+});
+
 // Callback: delete confirmation prompt
 bot.callbackQuery(/^task_delete:(\d+)$/, async (ctx) => {
   const id = parseInt(ctx.match[1], 10);
@@ -462,7 +558,7 @@ bot.on("message:text", async (ctx) => {
       }
     }
 
-    await sendOutboxFiles(ctx.api, ctx.chat.id);
+    await sendOutboxFiles(ctx.api, [ctx.chat.id]);
   } catch (error: any) {
     stopTyping();
     log.error("msg", "Chat error", { error: error.message, stack: error.stack });
@@ -501,7 +597,7 @@ bot.on("message:photo", async (ctx) => {
       }
     }
 
-    await sendOutboxFiles(ctx.api, ctx.chat.id);
+    await sendOutboxFiles(ctx.api, [ctx.chat.id]);
   } catch (error: any) {
     stopTyping();
     log.error("msg", "Photo error", { error: error.message, stack: error.stack });
