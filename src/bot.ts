@@ -19,11 +19,6 @@ const startTime = Date.now();
 
 export const bot = new Bot(config.telegramToken);
 
-// /myid — public command, no auth required. Anyone can use it to get their Telegram user ID.
-bot.command("myid", async (ctx) => {
-  await ctx.reply(`Your Telegram user ID is: \`${ctx.from?.id}\``, { parse_mode: "Markdown" });
-});
-
 // Auth middleware — silently ignore everyone except the owner
 bot.use(async (ctx, next) => {
   if (ctx.from?.id !== config.allowedUserId) {
@@ -353,7 +348,7 @@ bot.callbackQuery(/^task_recipients:(\d+)$/, async (ctx) => {
   const text =
     `👥 *Recipients for Task #${id}*\n\n` +
     lines.join("\n") +
-    `\n\nTo add a recipient, tell me: _"add user <id> to task ${id}"_`;
+    `\n\n_To add a recipient, just ask me in chat._`;
 
   try {
     await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: kb });
@@ -402,7 +397,7 @@ bot.callbackQuery(/^task_remove_recipient:(\d+):(\d+)$/, async (ctx) => {
   const text =
     `👥 *Recipients for Task #${taskId}*\n\n` +
     lines.join("\n") +
-    `\n\nTo add a recipient, tell me: _"add user <id> to task ${taskId}"_`;
+    `\n\n_To add a recipient, just ask me in chat._`;
 
   try {
     await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: kb });
