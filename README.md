@@ -4,9 +4,9 @@
   <img src="assets/demo.svg" alt="Homeboy demo" width="420"/>
 </p>
 
-Control a fully functional computer, or remote machine, with AI from your phone.
+Control a remote machine with fully autonomous AI from your phone.
 
-Install any Software/CLI you need and the bot could run it for you — remotely, conversationally, instantly or scheduled, no limits.
+Install any Software/CLI you need and the bot could run it for you — remotely, conversationally, instantly or scheduled — no limits.
 
 A personal AI assistant that lives in Telegram, powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-agent-sdk). It gives Claude full access to your machine — bash, filesystem, network, and custom tools — through a conversational Telegram interface.
 
@@ -131,7 +131,7 @@ Edit `system-prompt.txt` to change the AI's personality and instructions. The `{
 
 ## Extending with MCP servers
 
-Since the bot has full bash access, it can use any CLI tool installed on the machine. With [mcporter](https://github.com/AshDevFr/mcporter), the bot can install and manage [MCP servers](https://modelcontextprotocol.io/) on demand — you can even ask the bot to install mcporter itself and then set up any MCP servers you need, all through chat.
+Since the bot has full bash access, it can use any CLI tool installed on the machine. With [mcporter](https://github.com/openclaw/mcporter), the bot can install and manage [MCP servers](https://modelcontextprotocol.io/) on demand — you can even ask the bot to install mcporter itself and then set up any MCP servers you need, all through chat.
 
 ```bash
 # Or just ask the bot to run this for you:
