@@ -75,6 +75,7 @@ function baseOptions() {
     mcpServers: {
       "homeboy-tasks": taskToolsServer,
     },
+    env: { CLAUDE_CODE_ENTRYPOINT: "homeboy-cli" },
   };
 }
 
@@ -188,7 +189,7 @@ export async function runTask(prompt: string): Promise<string> {
     model: currentModel,
     allowedTools: BASE_TOOLS,
     permissionMode: "bypassPermissions" as const,
-    maxTurns: 50,
+    maxTurns: 100,
   };
 
   const result = await streamQuery(prompt, options);
