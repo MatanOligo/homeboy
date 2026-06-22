@@ -134,6 +134,14 @@ function formatTaskDetail(t: { id: number; name: string; status: string; schedul
   const recipients = t.report_to
     ? (JSON.parse(t.report_to) as number[]).join(", ") || "none"
     : String(config.allowedUserId);
+  // Telegram caps messages at 4096 chars. The prompt is the only unbounded
+  // field, so truncate it to keep the detail message well under the limit —
+  // otherwise long-prompt tasks fail to send and the detail never appears.
+  const MAX_PROMPT = 1500;
+  const prompt =
+    t.prompt.length > MAX_PROMPT
+      ? t.prompt.slice(0, MAX_PROMPT) + `… (truncated, ${t.prompt.length} chars total)`
+      : t.prompt;
   return (
     `*Task #${t.id}*\n` +
     `Title: ${t.name}\n` +
@@ -142,7 +150,7 @@ function formatTaskDetail(t: { id: number; name: string; status: string; schedul
     `Next run: ${nextRun}\n` +
     `Reporting: ${reporting}\n` +
     `Recipients: ${recipients}\n` +
-    `Prompt: ${t.prompt}`
+    `Prompt: ${prompt}`
   );
 }
 
