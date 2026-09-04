@@ -14,6 +14,7 @@ import type { Task } from "./db.js";
 import { executeTask } from "./scheduler.js";
 import { chunkMessage, keepTyping, sendOutboxFiles, cronBeautify } from "./utils.js";
 import { log, LOG_FILE } from "./logger.js";
+import { startReauth, submitCode, isAwaitingCode, cancelReauth } from "./reauth.js";
 
 const startTime = Date.now();
 
@@ -58,6 +59,7 @@ bot.command("start", async (ctx) => {
       "/model — View or switch Claude model\n" +
       "/status — Bot status and session info\n" +
       "/log — Show recent log entries\n" +
+      "/reauth — Re-authenticate Claude when its login expires\n" +
       "/restart — Restart the bot\n" +
       "/help — List all commands",
   );
@@ -74,6 +76,7 @@ bot.command("help", async (ctx) => {
       "/model [name] — View or switch Claude model\n" +
       "/status — Bot status, uptime, session info\n" +
       "/log [n] — Show last n log entries (default 20)\n" +
+      "/reauth [cancel] — Re-authenticate Claude when its OAuth login expires\n" +
       "/restart — Restart the bot\n" +
       "/help — This message\n\n" +
       "Any text message is sent to Claude.\n" +
@@ -485,6 +488,42 @@ bot.command("new", async (ctx) => {
   await ctx.reply("New conversation started.");
 });
 
+// /reauth [cancel] — re-authenticate Claude when the OAuth token expires
+bot.command("reauth", async (ctx) => {
+  const arg = ctx.match?.trim().toLowerCase();
+
+  if (arg === "cancel") {
+    const wasActive = cancelReauth();
+    await ctx.reply(wasActive ? "Reauth cancelled." : "No reauth in progress.");
+    return;
+  }
+
+  log.info("cmd", "/reauth");
+  await ctx.reply("Starting re-authentication…");
+
+  const result = await startReauth();
+
+  if (result.error) {
+    await ctx.reply(`Couldn't start reauth: ${result.error}`);
+    return;
+  }
+
+  if (!result.url) {
+    await ctx.reply("Reauth started but no login URL was produced. Try again.");
+    return;
+  }
+
+  const prefix = result.alreadyRunning
+    ? "A reauth is already in progress. Open this link:"
+    : "Open this link, authorize, then reply here with the code it shows you:";
+
+  await ctx.reply(
+    `${prefix}\n\n${result.url}\n\n` +
+      "Just send the code as a normal message. Send /reauth cancel to abort.",
+    { disable_web_page_preview: true } as any,
+  );
+});
+
 // /model [name] — view or switch model
 bot.command("model", async (ctx) => {
   const newModel = ctx.match?.trim();
@@ -537,6 +576,17 @@ bot.command("log", async (ctx) => {
 
 // Handle text messages
 bot.on("message:text", async (ctx) => {
+  // If a reauth is waiting for the OAuth code, treat this message as the code
+  // rather than a chat prompt.
+  if (isAwaitingCode()) {
+    const code = ctx.message.text.trim();
+    log.info("msg", "Received text while awaiting reauth code");
+    await ctx.reply("Exchanging code…");
+    const res = await submitCode(code);
+    await ctx.reply(res.message);
+    return;
+  }
+
   const msgPreview = ctx.message.text.slice(0, 80);
   log.info("msg", `Text received: "${msgPreview}${ctx.message.text.length > 80 ? "..." : ""}"`);
   const startTime = Date.now();

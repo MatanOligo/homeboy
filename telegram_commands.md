@@ -12,6 +12,7 @@ curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
     {"command":"model","description":"View or switch Claude model"},
     {"command":"status","description":"Bot status, uptime, session info"},
     {"command":"log","description":"Show recent log entries"},
+    {"command":"reauth","description":"Re-authenticate Claude when its login expires"},
     {"command":"restart","description":"Restart the bot"},
     {"command":"help","description":"List all commands"}
   ]}'
@@ -57,6 +58,19 @@ Restarts the bot process. The bot sends "Restarting..." and exits — systemd au
 
 ### /log [n]
 Shows the last `n` log entries (default 20). Reads from `data/homeboy.log`.
+
+### /reauth [cancel]
+Re-authenticate Claude when its OAuth login expires (the `401 OAuth access token has expired` error).
+
+Flow:
+1. Send `/reauth`. Homeboy spawns `claude auth login` inside a PTY and captures the OAuth URL.
+2. Homeboy DMs you the link. Open it, authorize, and copy the code the page shows.
+3. Reply to Homeboy with the code as a normal message — while a reauth is in-flight, your next message is treated as the code (not a chat prompt).
+4. Homeboy exchanges the code, verifies via `claude auth status`, and confirms `✅ Re-authenticated as …`.
+
+- `/reauth cancel` aborts an in-progress flow.
+- The flow auto-aborts after 5 minutes if no code is entered.
+- **Automatic:** when a scheduled task fails with an auth-expiry error, Homeboy starts this flow on its own and sends you the login link instead of the raw failure message.
 
 ### /help
 Lists all available commands with brief descriptions.
