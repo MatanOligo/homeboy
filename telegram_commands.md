@@ -70,7 +70,7 @@ Flow:
 
 - `/reauth cancel` aborts an in-progress flow.
 - The flow auto-aborts after 5 minutes if no code is entered.
-- **Automatic:** when a scheduled task fails with an auth-expiry error, Homeboy starts this flow on its own and sends you the login link instead of the raw failure message.
+- When a scheduled task fails with an expired-token `401`, that error message is your cue — just run `/reauth`.
 
 ### /help
 Lists all available commands with brief descriptions.

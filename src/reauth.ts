@@ -241,11 +241,3 @@ export async function submitCode(
     };
   }
 }
-
-/** True if an error message looks like an expired/invalid auth failure. */
-export function isAuthError(msg: string): boolean {
-  if (!msg) return false;
-  return /401|oauth|re-?authenticate|access token has expired|invalid_grant|failed to authenticate|not (logged in|authenticated)/i.test(
-    msg,
-  );
-}
