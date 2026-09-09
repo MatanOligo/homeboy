@@ -97,6 +97,7 @@ The bot auto-restarts on crashes. View logs with `journalctl -u homeboy -f`.
 | `/model [name]` | View or switch Claude model |
 | `/status` | Bot status, uptime, session info |
 | `/log [n]` | Show recent log entries |
+| `/reauth [cancel]` | Re-authenticate Claude when its OAuth login expires |
 | `/restart` | Restart the bot |
 | `/help` | List all commands |
 
@@ -115,6 +116,7 @@ src/
   config.ts       Typed env config, system prompt loading
   db.ts           SQLite database for scheduled tasks
   scheduler.ts    Task scheduler loop, runs tasks in isolated sessions
+  reauth.ts       Claude OAuth re-auth flow (/reauth): PTY login, URL capture, code exchange
   logger.ts       File + console logger
   utils.ts        Message chunking, typing indicator, file sending
 ```

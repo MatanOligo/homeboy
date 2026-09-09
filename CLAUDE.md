@@ -31,6 +31,7 @@ Source lives in `src/`:
 - `config.ts` — typed env config, system prompt loading
 - `db.ts` — SQLite database, scheduled tasks CRUD
 - `scheduler.ts` — task scheduler loop, runs tasks in isolated Claude sessions
+- `reauth.ts` — Claude OAuth re-authentication flow (`/reauth`); spawns `claude auth login` in a PTY, captures the login URL, feeds back the code
 - `logger.ts` — file + console logger
 - `utils.ts` — message chunking, typing indicator
 

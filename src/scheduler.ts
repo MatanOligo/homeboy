@@ -106,7 +106,8 @@ export async function executeTask(task: Task): Promise<void> {
 
     log.error("scheduler", `Task #${task.id} error`, { error: errorMsg });
 
-    // Always report errors regardless of reporting setting
+    // Always report errors regardless of reporting setting. If this is an
+    // auth-expiry error, the message itself is the cue to run /reauth.
     if (botApi && reportTo.length > 0) {
       for (const uid of reportTo) {
         await botApi.sendMessage(
