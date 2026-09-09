@@ -34,10 +34,13 @@ const state: ReauthState = {
 };
 
 function stripAnsi(s: string): string {
-  // CSI, OSC, and stray 2-char escape sequences.
+  // CSI, OSC (BEL- *and* ST-terminated — e.g. OSC-8 hyperlinks), and stray
+  // 2-char escape sequences. ST-terminated OSC (ESC \) must be stripped too,
+  // otherwise hyperlinked URLs get emitted twice and the capture concatenates
+  // them into one broken link.
   return s
     .replace(/\x1b\[[0-9;?<>]*[a-zA-Z]/g, "")
-    .replace(/\x1b\][^\x07]*\x07/g, "")
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
     .replace(/\x1b[78]/g, "")
     .replace(/\x1b./g, "");
 }
@@ -145,8 +148,18 @@ export function startReauth(): Promise<{
         const m = state.buffer.match(
           /https:\/\/[^\s"']*oauth\/authorize[^\s"']*/,
         );
-        if (m) {
-          state.url = m[0];
+        // Only accept once a terminator follows the match in the buffer —
+        // otherwise a chunk that split mid-URL would yield a truncated link.
+        const terminated =
+          m != null && m.index! + m[0].length < state.buffer.length;
+        if (m && terminated) {
+          // Defensive de-dup: if a doubled/echoed URL slipped through (e.g. an
+          // OSC-8 hyperlink whose escape wrapper wasn't stripped), cut at the
+          // start of the second copy so we hand back one valid link.
+          let url = m[0];
+          const second = url.indexOf("https://", 1);
+          if (second !== -1) url = url.slice(0, second);
+          state.url = url;
           state.phase = "awaiting_code";
           log.info("reauth", "Captured OAuth URL, awaiting code");
           if (!settled) {
